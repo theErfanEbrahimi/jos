@@ -336,23 +336,23 @@ Linker script and memory map
 .debug_pubnames
  *(.debug_pubnames)
 
-.debug_info     0x0000000000000000     0x6f2c
+.debug_info     0x0000000000000000     0x6f56
  *(.debug_info .gnu.linkonce.wi.*)
- .debug_info    0x0000000000000000       0x56 obj/kern/bootstrap.o
- .debug_info    0x0000000000000056       0x52 obj/kern/entry.o
- .debug_info    0x00000000000000a8      0x288 obj/kern/init.o
- .debug_info    0x0000000000000330      0xca3 obj/kern/console.o
- .debug_info    0x0000000000000fd3      0x3a8 obj/kern/monitor.o
- .debug_info    0x000000000000137b      0x1ec obj/kern/printf.o
- .debug_info    0x0000000000001567      0x153 obj/kern/syscall.o
- .debug_info    0x00000000000016ba      0xf76 obj/kern/kdebug.o
- .debug_info    0x0000000000002630      0x5ba obj/kern/printfmt.o
- .debug_info    0x0000000000002bea       0xdc obj/kern/readline.o
- .debug_info    0x0000000000002cc6      0x6a6 obj/kern/string.o
- .debug_info    0x000000000000336c     0x1425 obj/kern/libdwarf_rw.o
- .debug_info    0x0000000000004791     0x1094 obj/kern/libdwarf_frame.o
- .debug_info    0x0000000000005825      0xdf0 obj/kern/libdwarf_lineno.o
- .debug_info    0x0000000000006615      0x917 obj/kern/elf_rw.o
+ .debug_info    0x0000000000000000       0x6b obj/kern/bootstrap.o
+ .debug_info    0x000000000000006b       0x67 obj/kern/entry.o
+ .debug_info    0x00000000000000d2      0x288 obj/kern/init.o
+ .debug_info    0x000000000000035a      0xca3 obj/kern/console.o
+ .debug_info    0x0000000000000ffd      0x3a8 obj/kern/monitor.o
+ .debug_info    0x00000000000013a5      0x1ec obj/kern/printf.o
+ .debug_info    0x0000000000001591      0x153 obj/kern/syscall.o
+ .debug_info    0x00000000000016e4      0xf76 obj/kern/kdebug.o
+ .debug_info    0x000000000000265a      0x5ba obj/kern/printfmt.o
+ .debug_info    0x0000000000002c14       0xdc obj/kern/readline.o
+ .debug_info    0x0000000000002cf0      0x6a6 obj/kern/string.o
+ .debug_info    0x0000000000003396     0x1425 obj/kern/libdwarf_rw.o
+ .debug_info    0x00000000000047bb     0x1094 obj/kern/libdwarf_frame.o
+ .debug_info    0x000000000000584f      0xdf0 obj/kern/libdwarf_lineno.o
+ .debug_info    0x000000000000663f      0x917 obj/kern/elf_rw.o
 
 .debug_abbrev   0x0000000000000000     0x146d
  *(.debug_abbrev)
@@ -393,34 +393,34 @@ Linker script and memory map
 .debug_frame
  *(.debug_frame)
 
-.debug_str      0x0000000000000000     0x18cc
+.debug_str      0x0000000000000000     0x18e1
  *(.debug_str)
- .debug_str     0x0000000000000000      0x1ba obj/kern/init.o
-                                        0x1e8 (size before relaxing)
- .debug_str     0x00000000000001ba      0x169 obj/kern/console.o
-                                        0x29f (size before relaxing)
- .debug_str     0x0000000000000323       0x74 obj/kern/monitor.o
-                                        0x1c9 (size before relaxing)
- .debug_str     0x0000000000000397       0x17 obj/kern/printf.o
-                                        0x1a0 (size before relaxing)
- .debug_str     0x00000000000003ae       0xa2 obj/kern/syscall.o
-                                        0x1df (size before relaxing)
- .debug_str     0x0000000000000450      0x9fe obj/kern/kdebug.o
-                                        0xc2e (size before relaxing)
- .debug_str     0x0000000000000e4e       0x99 obj/kern/printfmt.o
-                                        0x2db (size before relaxing)
- .debug_str     0x0000000000000ee7       0x27 obj/kern/readline.o
-                                         0xf6 (size before relaxing)
- .debug_str     0x0000000000000f0e       0xa5 obj/kern/string.o
-                                        0x1f9 (size before relaxing)
- .debug_str     0x0000000000000fb3      0x2c8 obj/kern/libdwarf_rw.o
-                                        0xbef (size before relaxing)
- .debug_str     0x000000000000127b      0x2dd obj/kern/libdwarf_frame.o
-                                        0xb48 (size before relaxing)
- .debug_str     0x0000000000001558      0x1bd obj/kern/libdwarf_lineno.o
-                                        0xb96 (size before relaxing)
- .debug_str     0x0000000000001715      0x1b7 obj/kern/elf_rw.o
-                                        0x427 (size before relaxing)
+ .debug_str     0x0000000000000000      0x1cf obj/kern/init.o
+                                        0x1fd (size before relaxing)
+ .debug_str     0x00000000000001cf      0x169 obj/kern/console.o
+                                        0x2b4 (size before relaxing)
+ .debug_str     0x0000000000000338       0x74 obj/kern/monitor.o
+                                        0x1de (size before relaxing)
+ .debug_str     0x00000000000003ac       0x17 obj/kern/printf.o
+                                        0x1b5 (size before relaxing)
+ .debug_str     0x00000000000003c3       0xa2 obj/kern/syscall.o
+                                        0x1f4 (size before relaxing)
+ .debug_str     0x0000000000000465      0x9fe obj/kern/kdebug.o
+                                        0xc43 (size before relaxing)
+ .debug_str     0x0000000000000e63       0x99 obj/kern/printfmt.o
+                                        0x2f0 (size before relaxing)
+ .debug_str     0x0000000000000efc       0x27 obj/kern/readline.o
+                                        0x10b (size before relaxing)
+ .debug_str     0x0000000000000f23       0xa5 obj/kern/string.o
+                                        0x20e (size before relaxing)
+ .debug_str     0x0000000000000fc8      0x2c8 obj/kern/libdwarf_rw.o
+                                        0xc04 (size before relaxing)
+ .debug_str     0x0000000000001290      0x2dd obj/kern/libdwarf_frame.o
+                                        0xb5d (size before relaxing)
+ .debug_str     0x000000000000156d      0x1bd obj/kern/libdwarf_lineno.o
+                                        0xbab (size before relaxing)
+ .debug_str     0x000000000000172a      0x1b7 obj/kern/elf_rw.o
+                                        0x43c (size before relaxing)
 
 .debug_loc      0x0000000000000000     0x27e4
  *(.debug_loc)
