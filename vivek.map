@@ -172,8 +172,9 @@ Linker script and memory map
  .rodata        0x00000080042094c0       0x86 obj/kern/init.o
  .rodata        0x0000008004209546       0x29 obj/kern/console.o
  *fill*         0x000000800420956f        0x1 
- .rodata        0x0000008004209570      0x269 obj/kern/monitor.o
- .rodata        0x00000080042097d9       0x27 obj/kern/syscall.o
+ .rodata        0x0000008004209570      0x261 obj/kern/monitor.o
+ .rodata        0x00000080042097d1       0x27 obj/kern/syscall.o
+ *fill*         0x00000080042097f8        0x8 
  .rodata        0x0000008004209800      0x385 obj/kern/kdebug.o
  *fill*         0x0000008004209b85       0x1b 
  .rodata        0x0000008004209ba0      0x408 obj/kern/printfmt.o

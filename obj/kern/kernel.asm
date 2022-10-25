@@ -2913,7 +2913,7 @@ read_rbp(void)
   800420116e:	29 c2                	sub    %eax,%edx
   8004201170:	89 d0                	mov    %edx,%eax
   8004201172:	89 45 e8             	mov    %eax,-0x18(%rbp)
-		cprintf(" %s:%d: %s+%16.0x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
+		cprintf(" %s:%d: %s+%016x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
   8004201175:	48 8b 8d 10 fb ff ff 	mov    -0x4f0(%rbp),%rcx
   800420117c:	8b 95 08 fb ff ff    	mov    -0x4f8(%rbp),%edx
   8004201182:	48 8b 85 00 fb ff ff 	mov    -0x500(%rbp),%rax
@@ -2929,7 +2929,7 @@ read_rbp(void)
 		cprintf("args:%x ",info.rip_fn_narg);
   80042011ae:	8b 85 28 fb ff ff    	mov    -0x4d8(%rbp),%eax
   80042011b4:	89 c6                	mov    %eax,%esi
-  80042011b6:	48 bf 37 97 20 04 80 	movabs $0x8004209737,%rdi
+  80042011b6:	48 bf 36 97 20 04 80 	movabs $0x8004209736,%rdi
   80042011bd:	00 00 00 
   80042011c0:	b8 00 00 00 00       	mov    $0x0,%eax
   80042011c5:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -2949,7 +2949,7 @@ read_rbp(void)
   80042011ed:	48 01 d0             	add    %rdx,%rax
   80042011f0:	8b 00                	mov    (%rax),%eax
   80042011f2:	89 c6                	mov    %eax,%esi
-  80042011f4:	48 bf 40 97 20 04 80 	movabs $0x8004209740,%rdi
+  80042011f4:	48 bf 3f 97 20 04 80 	movabs $0x800420973f,%rdi
   80042011fb:	00 00 00 
   80042011fe:	b8 00 00 00 00       	mov    $0x0,%eax
   8004201203:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -2957,7 +2957,7 @@ read_rbp(void)
   800420120d:	ff d2                	callq  *%rdx
 		debuginfo_rip(rip, &info);
         	int offset=rip-info.rip_fn_addr;
-		cprintf(" %s:%d: %s+%16.0x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
+		cprintf(" %s:%d: %s+%016x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
 		cprintf("args:%x ",info.rip_fn_narg);
 		int i;
 		for(i = 1; i <= info.rip_fn_narg; i++) {
@@ -2968,7 +2968,7 @@ read_rbp(void)
 			cprintf("%016x ", *((int *)(rbp) -i));
 		}     
 		cprintf("\n");
-  800420121e:	48 bf 47 97 20 04 80 	movabs $0x8004209747,%rdi
+  800420121e:	48 bf 46 97 20 04 80 	movabs $0x8004209746,%rdi
   8004201225:	00 00 00 
   8004201228:	b8 00 00 00 00       	mov    $0x0,%eax
   800420122d:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -3039,7 +3039,7 @@ runcmd(char *buf, struct Trapframe *tf)
   80042012bf:	0f b6 00             	movzbl (%rax),%eax
   80042012c2:	0f be c0             	movsbl %al,%eax
   80042012c5:	89 c6                	mov    %eax,%esi
-  80042012c7:	48 bf 49 97 20 04 80 	movabs $0x8004209749,%rdi
+  80042012c7:	48 bf 48 97 20 04 80 	movabs $0x8004209748,%rdi
   80042012ce:	00 00 00 
   80042012d1:	48 b8 51 30 20 04 80 	movabs $0x8004203051,%rax
   80042012d8:	00 00 00 
@@ -3080,7 +3080,7 @@ runcmd(char *buf, struct Trapframe *tf)
   8004201315:	75 2a                	jne    8004201341 <runcmd+0xdf>
 			cprintf("Too many arguments (max %d)\n", MAXARGS);
   8004201317:	be 10 00 00 00       	mov    $0x10,%esi
-  800420131c:	48 bf 4e 97 20 04 80 	movabs $0x800420974e,%rdi
+  800420131c:	48 bf 4d 97 20 04 80 	movabs $0x800420974d,%rdi
   8004201323:	00 00 00 
   8004201326:	b8 00 00 00 00       	mov    $0x0,%eax
   800420132b:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -3117,7 +3117,7 @@ runcmd(char *buf, struct Trapframe *tf)
   800420137a:	0f b6 00             	movzbl (%rax),%eax
   800420137d:	0f be c0             	movsbl %al,%eax
   8004201380:	89 c6                	mov    %eax,%esi
-  8004201382:	48 bf 49 97 20 04 80 	movabs $0x8004209749,%rdi
+  8004201382:	48 bf 48 97 20 04 80 	movabs $0x8004209748,%rdi
   8004201389:	00 00 00 
   800420138c:	48 b8 51 30 20 04 80 	movabs $0x8004203051,%rax
   8004201393:	00 00 00 
@@ -3198,7 +3198,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	cprintf("Unknown command '%s'\n", argv[0]);
   8004201447:	48 8b 85 70 ff ff ff 	mov    -0x90(%rbp),%rax
   800420144e:	48 89 c6             	mov    %rax,%rsi
-  8004201451:	48 bf 6b 97 20 04 80 	movabs $0x800420976b,%rdi
+  8004201451:	48 bf 6a 97 20 04 80 	movabs $0x800420976a,%rdi
   8004201458:	00 00 00 
   800420145b:	b8 00 00 00 00       	mov    $0x0,%eax
   8004201460:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -3222,14 +3222,14 @@ monitor(struct Trapframe *tf)
 	char *buf;
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
-  800420147f:	48 bf 88 97 20 04 80 	movabs $0x8004209788,%rdi
+  800420147f:	48 bf 80 97 20 04 80 	movabs $0x8004209780,%rdi
   8004201486:	00 00 00 
   8004201489:	b8 00 00 00 00       	mov    $0x0,%eax
   800420148e:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
   8004201495:	00 00 00 
   8004201498:	ff d2                	callq  *%rdx
 	cprintf("Type 'help' for a list of commands.\n");
-  800420149a:	48 bf b0 97 20 04 80 	movabs $0x80042097b0,%rdi
+  800420149a:	48 bf a8 97 20 04 80 	movabs $0x80042097a8,%rdi
   80042014a1:	00 00 00 
   80042014a4:	b8 00 00 00 00       	mov    $0x0,%eax
   80042014a9:	48 ba 87 15 20 04 80 	movabs $0x8004201587,%rdx
@@ -3239,7 +3239,7 @@ monitor(struct Trapframe *tf)
 
 	while (1) {
 		buf = readline("K> ");
-  80042014b5:	48 bf d5 97 20 04 80 	movabs $0x80042097d5,%rdi
+  80042014b5:	48 bf cd 97 20 04 80 	movabs $0x80042097cd,%rdi
   80042014bc:	00 00 00 
   80042014bf:	48 b8 70 2c 20 04 80 	movabs $0x8004202c70,%rax
   80042014c6:	00 00 00 
@@ -3415,10 +3415,10 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 	// LAB 3: Your code here.
 
 	panic("syscall not implemented");
-  800420167f:	48 ba d9 97 20 04 80 	movabs $0x80042097d9,%rdx
+  800420167f:	48 ba d1 97 20 04 80 	movabs $0x80042097d1,%rdx
   8004201686:	00 00 00 
   8004201689:	be 0e 00 00 00       	mov    $0xe,%esi
-  800420168e:	48 bf f1 97 20 04 80 	movabs $0x80042097f1,%rdi
+  800420168e:	48 bf e9 97 20 04 80 	movabs $0x80042097e9,%rdi
   8004201695:	00 00 00 
   8004201698:	b8 00 00 00 00       	mov    $0x0,%eax
   800420169d:	48 b9 98 01 20 04 80 	movabs $0x8004200198,%rcx

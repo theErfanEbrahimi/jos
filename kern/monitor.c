@@ -74,7 +74,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		struct Ripdebuginfo info;
 		debuginfo_rip(rip, &info);
         	int offset=rip-info.rip_fn_addr;
-		cprintf(" %s:%d: %s+%16.0x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
+		cprintf(" %s:%d: %s+%016x ",info.rip_file, info.rip_line, info.rip_fn_name,offset);
 		cprintf("args:%x ",info.rip_fn_narg);
 		int i;
 		for(i = 1; i <= info.rip_fn_narg; i++) {
