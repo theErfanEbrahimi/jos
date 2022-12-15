@@ -121,7 +121,8 @@ env_init(void)
     struct Env *last;
     last = env_free_list = &envs[0];
     envs[0].env_id = 0;
-    for (int i = 1; i < NENV; i++) {
+    int i = 1 ;
+    for ( i = 1; i < NENV; i++) {
         envs[i].env_id = 0;
         last->env_link = &envs[i];
         last = &envs[i];
