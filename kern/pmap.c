@@ -211,7 +211,7 @@ boot_alloc(uint32_t n)
     if (n > 0) {
         nextfree = ROUNDUP((char *)(nextfree + n), PGSIZE);
         if ((uint64_t) nextfree > KERNBASE + (npages * PGSIZE)) {
-            panic("boot alloc error: out of memory\n");
+            panic("boot_alloc: out of memory\n");
         }
     }
 
@@ -236,10 +236,9 @@ x64_vm_init(void)
     int r;
     struct Env *env;
     i386_detect_memory();
-    //panic("i386_vm_init: This function is not finished\n");
     //////////////////////////////////////////////////////////////////////
     // create initial page directory.
-    panic("x64_vm_init: this function is not finished\n");
+    // panic("x64_vm_init: this function is not finished\n");
     pml4e = boot_alloc(PGSIZE);
     memset(pml4e, 0, PGSIZE);
     boot_pml4e = pml4e;
@@ -598,8 +597,8 @@ static void
 boot_map_region(pml4e_t *pml4e, uintptr_t la, size_t size, physaddr_t pa, int perm)
 {
     pte_t *pte;
-    int i = 0;
-    for( i = 0; i < size; i += PGSIZE) {
+    int i = 0 ;
+    for(i = 0; i < size; i += PGSIZE) {
         pte = pml4e_walk(pml4e, (void *)la + i, true);
         if (!pte)
             panic("failed to find the physical memory");
@@ -1190,3 +1189,4 @@ page_check(void)
 
     cprintf("check_page() succeeded!\n");
 }
+
