@@ -639,7 +639,7 @@ static void
 boot_map_region(pml4e_t *pml4e, uintptr_t la, size_t size, physaddr_t pa, int perm)
 {
 	pte_t *pte;
-    int i = = 0 ;
+    int i = 0 ;
 	for( i = 0; i < size; i += PGSIZE) {
 		pte = pml4e_walk(pml4e, (void *)la + i, true);
 		if (!pte)
