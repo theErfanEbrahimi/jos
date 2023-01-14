@@ -24,18 +24,6 @@ static void boot_aps(void);
 
 
 
-// Test the stack backtrace function (lab 1 only)
-void
-test_backtrace(int x)
-{
-	cprintf("entering test_backtrace %d\n", x);
-	if (x > 0)
-		test_backtrace(x-1);
-	else
-		mon_backtrace(0, 0, 0);
-	cprintf("leaving test_backtrace %d\n", x);
-}
-
 void
 i386_init(void)
 {
@@ -73,21 +61,18 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+	lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
-
-
-
-
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-
-	ENV_CREATE(user_primes, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
 #endif // TEST*
 
 	// Schedule and run the first user environment!
@@ -99,11 +84,6 @@ i386_init(void)
 // this variable.
 void *mpentry_kstack;
 
-    ENV_CREATE(user_hello, ENV_TYPE_USER);
-#endif // TEST*
-
-    // We only have one user environment for now, so just run it.
-    env_run(&envs[0]);
 // Start the non-boot (AP) processors.
 static void
 boot_aps(void)
@@ -120,7 +100,7 @@ boot_aps(void)
 		if (c == cpus + cpunum())  // We've started already.
 			continue;
 
-		// Tell mpentry.S what stack to use
+		// Tell mpentry.S what stack to use 
 		mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
 		// Start the CPU at mpentry_start
 		lapic_startap(c->cpu_id, PADDR(code));
@@ -134,7 +114,7 @@ boot_aps(void)
 void
 mp_main(void)
 {
-	// We are in high EIP now, safe to switch to kern_pgdir
+	// We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(boot_cr3);
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
@@ -148,9 +128,10 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 4
-	for (;;);
 }
 
 
@@ -167,36 +148,36 @@ const char *panicstr;
 void
 _panic(const char *file, int line, const char *fmt,...)
 {
-    va_list ap;
+	va_list ap;
 
-    if (panicstr)
-        goto dead;
-    panicstr = fmt;
+	if (panicstr)
+		goto dead;
+	panicstr = fmt;
 
-    // Be extra sure that the machine is in as reasonable state
-    __asm __volatile("cli; cld");
+	// Be extra sure that the machine is in as reasonable state
+	__asm __volatile("cli; cld");
 
-    va_start(ap, fmt);
-    cprintf("kernel panic at %s:%d: ", file, line);
-    vcprintf(fmt, ap);
-    cprintf("\n");
-    va_end(ap);
+	va_start(ap, fmt);
+	cprintf("kernel panic on CPU %d at %s:%d: ", cpunum(), file, line);
+	vcprintf(fmt, ap);
+	cprintf("\n");
+	va_end(ap);
 
-    dead:
-    /* break into the kernel monitor */
-    while (1)
-        monitor(NULL);
+dead:
+	/* break into the kernel monitor */
+	while (1)
+		monitor(NULL);
 }
 
 /* like panic, but don't */
 void
 _warn(const char *file, int line, const char *fmt,...)
 {
-    va_list ap;
+	va_list ap;
 
-    va_start(ap, fmt);
-    cprintf("kernel warning at %s:%d: ", file, line);
-    vcprintf(fmt, ap);
-    cprintf("\n");
-    va_end(ap);
+	va_start(ap, fmt);
+	cprintf("kernel warning at %s:%d: ", file, line);
+	vcprintf(fmt, ap);
+	cprintf("\n");
+	va_end(ap);
 }
