@@ -87,6 +87,7 @@ PERL	:= perl
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
 CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O0 -fno-builtin -I$(TOP) -MD
 CFLAGS += -fno-omit-frame-pointer -mno-red-zone
+CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gdwarf-2
 CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gdwarf-2 -fvar-tracking
 
 # Add -fno-stack-protector if the option exists.
@@ -148,6 +149,8 @@ include user/Makefrag
 CPUS ?= 1
 
 ## We need KVM for qemu to export VMX
+#QEMUOPTS = -cpu qemu64,+vmx -enable-kvm -m 256 -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS = -cpu qemu64 -m 256 -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS = -cpu qemu64,+vmx -enable-kvm -m 256 -drive format=raw,file=$(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
 IMAGES = $(OBJDIR)/kern/kernel.img
@@ -212,6 +215,7 @@ grade:
 	./grade-lab$(LAB) $(GRADEFLAGS)
 
 update:
+	git pull https://github.com/comp530h-f18/jos.git
        git pull https://github.com/comp790-s20/jos.git
 
 handin: realclean
@@ -275,3 +279,4 @@ always:
 
 .PHONY: all always \
 	handin tarball clean realclean distclean grade handin-prep handin-check
+
