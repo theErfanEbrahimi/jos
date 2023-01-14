@@ -24,6 +24,18 @@ static void boot_aps(void);
 
 
 
+// Test the stack backtrace function (lab 1 only)
+void
+test_backtrace(int x)
+{
+	cprintf("entering test_backtrace %d\n", x);
+	if (x > 0)
+		test_backtrace(x-1);
+	else
+		mon_backtrace(0, 0, 0);
+	cprintf("leaving test_backtrace %d\n", x);
+}
+
 void
 i386_init(void)
 {
@@ -87,6 +99,11 @@ i386_init(void)
 // this variable.
 void *mpentry_kstack;
 
+    ENV_CREATE(user_hello, ENV_TYPE_USER);
+#endif // TEST*
+
+    // We only have one user environment for now, so just run it.
+    env_run(&envs[0]);
 // Start the non-boot (AP) processors.
 static void
 boot_aps(void)
@@ -150,36 +167,36 @@ const char *panicstr;
 void
 _panic(const char *file, int line, const char *fmt,...)
 {
-	va_list ap;
+    va_list ap;
 
-	if (panicstr)
-		goto dead;
-	panicstr = fmt;
+    if (panicstr)
+        goto dead;
+    panicstr = fmt;
 
-	// Be extra sure that the machine is in as reasonable state
-	__asm __volatile("cli; cld");
+    // Be extra sure that the machine is in as reasonable state
+    __asm __volatile("cli; cld");
 
-	va_start(ap, fmt);
-	cprintf("kernel panic on CPU %d at %s:%d: ", cpunum(), file, line);
-	vcprintf(fmt, ap);
-	cprintf("\n");
-	va_end(ap);
+    va_start(ap, fmt);
+    cprintf("kernel panic at %s:%d: ", file, line);
+    vcprintf(fmt, ap);
+    cprintf("\n");
+    va_end(ap);
 
-dead:
-	/* break into the kernel monitor */
-	while (1)
-		monitor(NULL);
+    dead:
+    /* break into the kernel monitor */
+    while (1)
+        monitor(NULL);
 }
 
 /* like panic, but don't */
 void
 _warn(const char *file, int line, const char *fmt,...)
 {
-	va_list ap;
+    va_list ap;
 
-	va_start(ap, fmt);
-	cprintf("kernel warning at %s:%d: ", file, line);
-	vcprintf(fmt, ap);
-	cprintf("\n");
-	va_end(ap);
+    va_start(ap, fmt);
+    cprintf("kernel warning at %s:%d: ", file, line);
+    vcprintf(fmt, ap);
+    cprintf("\n");
+    va_end(ap);
 }
