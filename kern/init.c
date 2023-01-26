@@ -17,17 +17,30 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <inc/x86.h>
+#include <inc/x86.h>
 
 uint64_t end_debug;
 
 static void boot_aps(void);
 
 
+// Test the stack backtrace function (lab 1 only)
+void
+test_backtrace(int x)
+{
+	cprintf("entering test_backtrace %d\n", x);
+	if (x > 0)
+	        test_backtrace(x-1);
+	else
+	      mon_backtrace(0, 0, 0);
+	cprintf("leaving test_backtrace %d\n", x);
+}
 
 void
 i386_init(void)
 {
-	/* __asm __volatile("int $12"); */
+    /* __asm __volatile("int $12"); */
 
 	extern char edata[], end[];
 
@@ -42,8 +55,8 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
-	extern char end[];
-	end_debug = read_section_headers((0x10000+KERNBASE), (uintptr_t)end);
+    extern char end[];
+    end_debug = read_section_headers((0x10000+KERNBASE), (uintptr_t)end); 
 
 	// Lab 2 memory management initialization functions
 	x64_vm_init();
@@ -53,6 +66,7 @@ i386_init(void)
 	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
+	
 	mp_init();
 	lapic_init();
 
@@ -62,7 +76,6 @@ i386_init(void)
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
 	lock_kernel();
-
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -71,8 +84,8 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_yield, ENV_TYPE_USER);
-	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_spin, ENV_TYPE_USER);
+	//ENV_CREATE(user_yield, ENV_TYPE_USER);
 #endif // TEST*
 
 	// Schedule and run the first user environment!
@@ -108,6 +121,7 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
+
 }
 
 // Setup code for APs
@@ -130,10 +144,9 @@ mp_main(void)
 	// Your code here:
 	lock_kernel();
 	sched_yield();
-
 	// Remove this after you finish Exercise 4
+	for (;;);
 }
-
 
 /*
  * Variable panicstr contains argument to first call to panic; used as flag
