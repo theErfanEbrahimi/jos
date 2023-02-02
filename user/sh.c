@@ -121,18 +121,18 @@ runit:
 			cprintf("EMPTY COMMAND\n");
 		return;
 	}
-
-	//Search in all the PATH's for the binary
-	struct Stat st;
-	for(i=0;i<npaths;i++) {
-		strcpy(argv0buf, PATH[i]);
-		strcat(argv0buf, argv[0]);
-		r = stat(argv0buf, &st);
-		if(r==0) {
-			argv[0] = argv0buf;
-			break; 
-		}
-	}
+    
+    //Search in all the PATH's for the binary
+    struct Stat st;
+    for(i=0;i<npaths;i++) {
+        strcpy(argv0buf, PATH[i]);
+        strcat(argv0buf, argv[0]);
+        r = stat(argv0buf, &st);
+        if(r==0) {
+           argv[0] = argv0buf;
+           break; 
+        }
+    }
 
 	// Clean up command line.
 	// Read all commands from the filesystem: add an initial '/' to
@@ -272,6 +272,7 @@ umain(int argc, char **argv)
 {
 	int r, interactive, echocmds;
 	struct Argstate args;
+
 	interactive = '?';
 	echocmds = 0;
 	argstart(&argc, argv, &args);
@@ -289,6 +290,7 @@ umain(int argc, char **argv)
 		default:
 			usage();
 		}
+
 	if (argc > 2)
 		usage();
 	if (argc == 2) {
@@ -302,14 +304,13 @@ umain(int argc, char **argv)
 
 	while (1) {
 		char *buf;
+
 		buf = readline(interactive ? "$ " : NULL);
 		if (buf == NULL) {
 			if (debug)
 				cprintf("EXITING\n");
 			exit();	// end of file
 		}
-		if(strcmp(buf, "quit")==0)
-			exit();
 		if (debug)
 			cprintf("LINE: %s\n", buf);
 		if (buf[0] == '#')
@@ -325,9 +326,8 @@ umain(int argc, char **argv)
 		if (r == 0) {
 			runcmd(buf);
 			exit();
-		} else {
+		} else
 			wait(r);
-		}
 	}
 }
 

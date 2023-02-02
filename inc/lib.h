@@ -76,7 +76,6 @@ void	ipc_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int32_t ipc_recv(envid_t *from_env_store, void *pg, int *perm_store);
 envid_t	ipc_find_env(enum EnvType type);
 
-
 // fork.c
 #define	PTE_SHARE	0x400
 envid_t	fork(void);
@@ -98,7 +97,6 @@ int	open(const char *path, int mode);
 int	ftruncate(int fd, off_t size);
 int	remove(const char *path);
 int	sync(void);
-
 
 // pageref.c
 int	pageref(void *addr);

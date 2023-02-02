@@ -64,7 +64,6 @@ umain(int argc, char **argv)
 			cprintf("init: spawn sh: %e\n", r);
 			continue;
 		}
-		cprintf("init waiting\n");
 		wait(r);
 	}
 }

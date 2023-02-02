@@ -54,12 +54,12 @@ uint32_t *bitmap;
 void
 panic(const char *fmt, ...)
 {
-	va_list ap;
+        va_list ap;
 
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	fputc('\n', stderr);
+        va_start(ap, fmt);
+        vfprintf(stderr, fmt, ap);
+        va_end(ap);
+        fputc('\n', stderr);
 	abort();
 }
 
@@ -102,7 +102,7 @@ opendisk(const char *name)
 		panic("open %s: %s", name, strerror(errno));
 
 	if ((r = ftruncate(diskfd, 0)) < 0
-            || (r = ftruncate(diskfd, nblocks * BLKSIZE)) < 0)
+	    || (r = ftruncate(diskfd, nblocks * BLKSIZE)) < 0)
 		panic("truncate %s: %s", name, strerror(errno));
 
 	if ((diskmap = mmap(NULL, nblocks * BLKSIZE, PROT_READ|PROT_WRITE,
@@ -229,6 +229,7 @@ main(int argc, char **argv)
 	int flag=FLAG_ROOT;
 	struct Dir bin, sbin;
 	struct File *b, *sb;
+
 	assert(BLKSIZE % sizeof(struct File) == 0);
 
 	if (argc < 3)
@@ -242,38 +243,38 @@ main(int argc, char **argv)
 
 	startdir(&super->s_root, &root);
 
-	b = diradd(&root, FTYPE_DIR, "bin");
-	startdir(b, &bin);
+    b = diradd(&root, FTYPE_DIR, "bin");
+    startdir(b, &bin);
     
-	sb = diradd(&root, FTYPE_DIR, "sbin");
-	startdir(sb, &sbin);
-
+    sb = diradd(&root, FTYPE_DIR, "sbin");
+    startdir(sb, &sbin);
 
 	for (i = 3; i < argc; i++) {
-		if(strcmp("-b", argv[i]) == 0) {
-			flag = FLAG_BIN;
-			continue;
-		} else if(strcmp("-sb", argv[i]) == 0) {
-			flag = FLAG_SBIN;
-			continue;
-		}
+       if(strcmp("-b", argv[i]) == 0) {
+           flag = FLAG_BIN;
+            continue;
+        } else if(strcmp("-sb", argv[i]) == 0) {
+            flag = FLAG_SBIN;
+            continue;
+        }
 
-		switch (flag){
-		case FLAG_ROOT:
-			writefile(&root, argv[i]);
-			break;
-		case FLAG_BIN:
-			writefile(&bin, argv[i]);
-			break;
-		case FLAG_SBIN:
-			writefile(&sbin, argv[i]);
-			break;
+        switch (flag){
+            case FLAG_ROOT:
+                writefile(&root, argv[i]);
+                break;
+            case FLAG_BIN:
+                writefile(&bin, argv[i]);
+                break;
+            case FLAG_SBIN:
+                writefile(&sbin, argv[i]);
+                break;
 		}
-	}
+    }
 	
-	finishdir(&bin);
-	finishdir(&sbin);
-	finishdir(&root);
+    finishdir(&bin);
+    finishdir(&sbin);
+    finishdir(&root);
+
 	finishdisk();
 	return 0;
 }

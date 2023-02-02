@@ -6,7 +6,7 @@
 #define UTEMP3			(UTEMP2 + PGSIZE)
 
 // Helper functions for spawn.
-static int init_stack(envid_t child, const char **argv, uintptr_t *init_rsp);
+static int init_stack(envid_t child, const char **argv, uintptr_t *init_esp);
 static int map_segment(envid_t child, uintptr_t va, size_t memsz,
 		       int fd, size_t filesz, off_t fileoffset, int perm);
 static int copy_shared_pages(envid_t child);
@@ -81,7 +81,7 @@ spawn(const char *prog, const char **argv)
 	//     PGOFF(ph->p_offset) == PGOFF(ph->p_va).
 	//
 	//   - Call sys_env_set_trapframe(child, &child_tf) to set up the
-	//     correct initial rip and rsp values in the child.
+	//     correct initial eip and esp values in the child.
 	//
 	//   - Start the child process running with sys_env_set_status().
 
@@ -92,17 +92,16 @@ spawn(const char *prog, const char **argv)
 	// Read elf header
 	elf = (struct Elf*) elf_buf;
 	if (readn(fd, elf_buf, sizeof(elf_buf)) != sizeof(elf_buf)
-            || elf->e_magic != ELF_MAGIC) {
+	    || elf->e_magic != ELF_MAGIC) {
 		close(fd);
 		cprintf("elf magic %08x want %08x\n", elf->e_magic, ELF_MAGIC);
 		return -E_NOT_EXEC;
 	}
-
 	// Create new child environment
 	if ((r = sys_exofork()) < 0)
 		return r;
 	child = r;
-
+	
 	// Set up trap frame, including initial stack.
 	child_tf = envs[ENVX(child)].env_tf;
 	child_tf.tf_rip = elf->e_entry;
@@ -124,6 +123,7 @@ spawn(const char *prog, const char **argv)
 	}
 	close(fd);
 	fd = -1;
+	
 
 	// Copy shared library state.
 	if ((r = copy_shared_pages(child)) < 0)
@@ -134,7 +134,6 @@ spawn(const char *prog, const char **argv)
 
 	if ((r = sys_env_set_status(child, ENV_RUNNABLE)) < 0)
 		panic("sys_env_set_status: %e", r);
-
 	return child;
 
 error:
@@ -179,11 +178,11 @@ spawnl(const char *prog, const char *arg0, ...)
 // using the arguments array pointed to by 'argv',
 // which is a null-terminated array of pointers to null-terminated strings.
 //
-// On success, returns 0 and sets *init_rsp
+// On success, returns 0 and sets *init_esp
 // to the initial stack pointer with which the child should start.
 // Returns < 0 on failure.
 static int
-init_stack(envid_t child, const char **argv, uintptr_t *init_rsp)
+init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 {
 	size_t string_size;
 	int argc, i, r;
@@ -230,7 +229,7 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_rsp)
 	//	  (Again, argv should use an address valid in the child's
 	//	  environment.)
 	//
-	//	* Set *init_rsp to the initial stack pointer for the child,
+	//	* Set *init_esp to the initial stack pointer for the child,
 	//	  (Again, use an address valid in the child's environment.)
 	for (i = 0; i < argc; i++) {
 		argv_store[i] = UTEMP2USTACK(string_store);
@@ -243,7 +242,7 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_rsp)
 	argv_store[-1] = UTEMP2USTACK(argv_store);
 	argv_store[-2] = argc;
 
-	*init_rsp = UTEMP2USTACK(&argv_store[-2]);
+	*init_esp = UTEMP2USTACK(&argv_store[-2]);
 
 	// After completing the stack, map it into the child's address space
 	// and unmap it from ours!
@@ -261,7 +260,7 @@ error:
 
 static int
 map_segment(envid_t child, uintptr_t va, size_t memsz,
-	    int fd, size_t filesz, off_t fileoffset, int perm)
+	int fd, size_t filesz, off_t fileoffset, int perm)
 {
 	int i, r;
 	void *blk;
@@ -285,7 +284,7 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 			if ((r = sys_page_alloc(0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
 				return r;
 			if ((r = seek(fd, fileoffset + i)) < 0)
-				return r;
+				return r;	
 			if ((r = readn(fd, UTEMP, MIN(PGSIZE, filesz-i))) < 0)
 				return r;
 			if ((r = sys_page_map(0, UTEMP, child, (void*) (va + i), perm)) < 0)
@@ -301,6 +300,26 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	uint64_t addr;
+	for (addr = UTEXT; addr < (USTACKTOP); addr += PGSIZE) 
+	{
+               if(!(uvpml4e[VPML4E(addr)]))
+		 continue;
+		
+		if(!(uvpde[VPDPE(addr)]))
+	          continue;
+	
+                if(!(uvpd[VPD(addr)]))
+		  continue;
+		
+		if(!(uvpt[VPN(addr)]))
+		  continue; 
+                
+		int perm = uvpt[VPN(addr)];
+                if (perm & PTE_SHARE)
+                   sys_page_map(0, (void *)addr, child, (void *)addr, perm & PTE_SYSCALL);       
+        }
+
 	return 0;
 }
 

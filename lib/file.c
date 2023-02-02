@@ -2,7 +2,6 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-
 #define debug 0
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
@@ -40,10 +39,10 @@ struct Dev devfile =
 	.dev_id =	'f',
 	.dev_name =	"file",
 	.dev_read =	devfile_read,
+	.dev_write =    devfile_write,
 	.dev_close =	devfile_flush,
 	.dev_stat =	devfile_stat,
-	.dev_write =	devfile_write,
-	.dev_trunc =	devfile_trunc
+	
 };
 
 // Open a file (or directory).
@@ -70,6 +69,28 @@ open(const char *path, int mode)
 	// file descriptor.
 
 	// LAB 5: Your code here
+	struct Fd *fd;
+
+	if(strlen(path) > MAXPATHLEN)
+	  return -E_BAD_PATH;
+		
+	int err = fd_alloc(&fd);
+	if(err < 0)
+	   return err;
+	  	
+	strcpy(fsipcbuf.open.req_path, path);
+	//memmove(fsipcbuf.open.req_path, path,MAXPATHLEN);
+	fsipcbuf.open.req_omode = mode;
+
+	err = fsipc(FSREQ_OPEN, fd);		
+	if(err < 0)
+	{
+	  fd_close(fd,0);
+	  return err;
+	}
+	
+	return fd2num(fd);
+	
 	panic ("open not implemented");
 }
 
@@ -101,24 +122,41 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	// bytes read will be written back to fsipcbuf by the file
 	// system server.
 	// LAB 5: Your code here
+	fsipcbuf.read.req_n = n;	
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
+	ssize_t read = fsipc(FSREQ_READ, NULL);
+
+	if(read < 0)
+	  return read;
+
+	memmove(buf, fsipcbuf.readRet.ret_buf, read);
+	return read; 
+
 	panic("devfile_read not implemented");
 }
 
-// Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
+
+// Test for write Manoj Write at most 'n' bytes at 'fd' at the current position from 'buf'.
 //
 // Returns:
-//	 The number of bytes successfully written.
-//	 < 0 on error.
-static ssize_t
-devfile_write(struct Fd *fd, const void *buf, size_t n)
+// 	The number of bytes successfully write.
+// 	< 0 on error.
+static ssize_t devfile_write(struct Fd *fd, const void *buf, size_t n)
 {
-	// Make an FSREQ_WRITE request to the file system server.  Be
-	// careful: fsipcbuf.write.req_buf is only so large, but
-	// remember that write is always allowed to write *fewer*
-	// bytes than requested.
-	// LAB 5: Your code here
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	
+	if(n > (PGSIZE - (sizeof(int) + sizeof(size_t))))
+	   n = (PGSIZE - (sizeof(int) + sizeof(size_t)));
+	 
+	fsipcbuf.write.req_n = n;	
+	memmove(fsipcbuf.write.req_buf, buf, n);
+	ssize_t write = fsipc(FSREQ_WRITE, NULL);
+	//cprintf("HERE at file write %d %d\n", write, n);
+	return write; 
+
 	panic("devfile_write not implemented");
 }
+
 
 static int
 devfile_stat(struct Fd *fd, struct Stat *st)
@@ -134,75 +172,4 @@ devfile_stat(struct Fd *fd, struct Stat *st)
 	return 0;
 }
 
-// Truncate or extend an open file to 'size' bytes
-static int
-devfile_trunc(struct Fd *fd, off_t newsize)
-{
-	fsipcbuf.set_size.req_fileid = fd->fd_file.id;
-	fsipcbuf.set_size.req_size = newsize;
-	return fsipc(FSREQ_SET_SIZE, NULL);
-}
-
-// Delete a file
-int
-remove(const char *path)
-{
-	if (strlen(path) >= MAXPATHLEN)
-		return -E_BAD_PATH;
-	strcpy(fsipcbuf.remove.req_path, path);
-	return fsipc(FSREQ_REMOVE, NULL);
-}
-
-// Synchronize disk with buffer cache
-int
-sync(void)
-{
-	// Ask the file server to update the disk
-	// by writing any dirty blocks in the buffer cache.
-
-	return fsipc(FSREQ_SYNC, NULL);
-}
-
-//Copy a file from src to dest
-int
-copy(char *src, char *dest)
-{
-	int r;
-	int fd_src, fd_dest;
-	char buffer[512];	//keep this small
-	ssize_t read_size;
-	ssize_t write_size;
-	fd_src = open(src, O_RDONLY);
-	if (fd_src < 0) {	//error
-		cprintf("cp open src error:%e\n", fd_src);
-		return fd_src;
-	}
-	
-	fd_dest = open(dest, O_CREAT | O_WRONLY);
-	if (fd_dest < 0) {	//error
-		cprintf("cp create dest  error:%e\n", fd_dest);
-		close(fd_src);
-		return fd_dest;
-	}
-	
-	while ((read_size = read(fd_src, buffer, 512)) > 0) {
-		write_size = write(fd_dest, buffer, read_size);
-		if (write_size < 0) {
-			cprintf("cp write error:%e\n", write_size);
-			close(fd_src);
-			close(fd_dest);
-			return write_size;
-		}		
-	}
-	if (read_size < 0) {
-		cprintf("cp read src error:%e\n", read_size);
-		close(fd_src);
-		close(fd_dest);
-		return read_size;
-	}
-	close(fd_src);
-	close(fd_dest);
-	return 0;
-	
-}
 

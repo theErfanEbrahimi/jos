@@ -7,10 +7,7 @@
 
 OBJDIRS += kern
 
-KERN_LDFLAGS := $(LDFLAGS) -T kern/kernel.ld 
-
-KERN_LDFLAGS += -nostdlib --no-gc-sections --print-gc-sections -Map=vivek.map
-
+KERN_LDFLAGS := $(LDFLAGS) -T kern/kernel.ld -nostdlib --no-gc-sections --print-gc-sections -Map=vivek.map
 
 # entry.S must be first, so that it's the first code in the text segment!!!
 #
@@ -34,18 +31,17 @@ KERN_SRCFILES :=	kern/entry.S \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c  \
-			kern/libdwarf_rw.c \
-			kern/libdwarf_frame.c \
+		    kern/libdwarf_rw.c \
+		    kern/libdwarf_frame.c \
 			kern/libdwarf_lineno.c \
-			kern/libdwarf_loc.c \
-			kern/elf_rw.c
+		    kern/elf_rw.c
+
 
 # Source files for LAB4
 KERN_SRCFILES +=	kern/mpentry.S \
 			kern/mpconfig.c \
 			kern/lapic.c \
 			kern/spinlock.c
-
 
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
@@ -72,8 +68,7 @@ KERN_BINFILES +=	user/idle \
 			user/pingpongs \
 			user/primes
 # Binary files for LAB5
-KERN_BINFILES +=	user/testfile \
-			user/writemotd \
+KERN_BINFILES +=	user/testfilero \
 			user/spawnhello \
 			user/icode \
 			fs/fs
@@ -87,7 +82,9 @@ KERN_BINFILES +=	user/testpteshare \
 			user/primespipe \
 			user/testkbd \
 			user/testshell
-
+# Binary files for LAB5 : Test for Write
+KERN_BINFILES +=	user/manoj 
+			
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
 KERN_OBJFILES := $(patsubst $(OBJDIR)/lib/%, $(OBJDIR)/kern/%, $(KERN_OBJFILES))
@@ -100,11 +97,15 @@ $(OBJDIR)/kern/%.o: kern/%.c $(OBJDIR)/.vars.KERN_CFLAGS
 	@mkdir -p $(@D)
 	$(V)$(CC) -nostdinc $(KERN_CFLAGS) -c -o $@ $<
 
+# $(OBJDIR)/kern/bootstrap.o: kern/bootstrap.S $(OBJDIR)/.vars.BOOT_CFLAGS
+# 	@echo + as $<
+# 	@mkdir -p $(@D)
+# 	$(V)$(CC) -nostdinc $(BOOT_CFLAGS) -c -o $@ $<
+
 $(OBJDIR)/kern/%.o: kern/%.S $(OBJDIR)/.vars.KERN_CFLAGS
 	@echo + as $<
 	@mkdir -p $(@D)
 	$(V)$(CC) -nostdinc $(KERN_CFLAGS) -c -o $@ $<
-
 
 $(OBJDIR)/kern/%.o: lib/%.c $(OBJDIR)/.vars.KERN_CFLAGS
 	@echo + cc $<
