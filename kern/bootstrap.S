@@ -6,7 +6,7 @@
 # Translation: cr3->pml4->pdpe->pgdir
 # We set the PTE_MBZ bit in pgdir to skip the last step	
 .code32
-.set pml4, pml4phys
+.set pml4, pml4virt
 .set pdpt1,  pml4 + 0x1000
 .set pdpt2,  pml4 + 2*0x1000
 .set pde1, pml4 + 3*0x1000
@@ -179,8 +179,8 @@ gdtdesc_64:
 
     .p2align PGSHIFT
 
-.globl pml4phys
-pml4phys:
+.globl pml4virt
+pml4virt:
     .space 5*PGSIZE
 
 .globl multiboot_info

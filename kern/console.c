@@ -195,10 +195,11 @@ cga_putc(int c)
 		break;
 	}
 
-	// What is the purpose of this?
+	// When the crt pos is more than that of CRT_SIZE (if output exceeds CRT_SIZE), it adds one more row at the end 
+	// filling it up with ' ' (scrolls down to the next line). The data from the second line of the screen to the end 
+	// is put into crt_buf, effectively removing the first line of the screen
 	if (crt_pos >= CRT_SIZE) {
 		int i;
-
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
 			crt_buf[i] = 0x0700 | ' ';

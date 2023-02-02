@@ -11,8 +11,6 @@ ROOTAPPS := $(OBJDIR)/user/init
 
 FSIMGTXTFILES :=	fs/newmotd \
 			fs/motd \
-			fs/newmotdold \
-			fs/motdold \
 			fs/robig
 
 

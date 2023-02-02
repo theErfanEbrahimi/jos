@@ -14,7 +14,7 @@ struct Ripdebuginfo {
 	int rip_fn_namelen;		// Length of function name
 	uintptr_t rip_fn_addr;		// Address of start of function
 	int rip_fn_narg;		// Number of function arguments
-        int size_fn_arg[10];    // Sizes of each of function arguments
+    int size_fn_arg[10];    // Sizes of each of function arguments
 	Dwarf_Regtable reg_table;
 };
 

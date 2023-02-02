@@ -31,8 +31,8 @@ cprintf(const char *fmt, ...)
 	va_list ap;
 	int cnt;
 	va_start(ap, fmt);
-        va_list aq;
-        va_copy(aq,ap);
+    va_list aq;
+    va_copy(aq,ap);
 	cnt = vcprintf(fmt, aq);
 	va_end(aq);
 

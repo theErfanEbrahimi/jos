@@ -17,25 +17,11 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
-#include <inc/x86.h>
-#include <inc/x86.h>
 
 uint64_t end_debug;
 
 static void boot_aps(void);
 
-
-// Test the stack backtrace function (lab 1 only)
-void
-test_backtrace(int x)
-{
-	cprintf("entering test_backtrace %d\n", x);
-	if (x > 0)
-	        test_backtrace(x-1);
-	else
-	      mon_backtrace(0, 0, 0);
-	cprintf("leaving test_backtrace %d\n", x);
-}
 
 void
 i386_init(void)
@@ -66,7 +52,6 @@ i386_init(void)
 	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
-	
 	mp_init();
 	lapic_init();
 
@@ -87,8 +72,7 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
-	//ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_icode, ENV_TYPE_USER);
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -127,7 +111,6 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
-
 }
 
 // Setup code for APs
@@ -143,15 +126,15 @@ mp_main(void)
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
+	lock_kernel();
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-	lock_kernel();
 	sched_yield();
 	// Remove this after you finish Exercise 4
-	for (;;);
+	// for (;;);
 }
 
 /*

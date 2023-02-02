@@ -123,21 +123,22 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-	
-	int  i;
-        struct Env * last = NULL;
-        for(i = 0; i < NENV; i++)
-         {
-            envs[i].env_id = 0;
-            envs[i].env_status = ENV_FREE;
-            if(last)
-              last->env_link = &envs[i]; 
-           
-	    last = &envs[i];
-	 }  
-        last->env_link = NULL;
-        env_free_list = &envs[0];
-        // Per-CPU part of the initialization
+	struct Env *env = NULL;
+	size_t i = 0;
+	for (; i < NENV; i++) {
+		envs[i].env_type = ENV_FREE;
+		envs[i].env_id = 0;
+		if(env) {
+			env->env_link = &envs[i];
+		}
+		else {
+			env_free_list = &envs[i];
+		}
+		env = &envs[i];
+	}
+	//Not sure whether this is needed, but anyway
+	//env->env_link = env;
+	// Per-CPU part of the initialization
 	env_init_percpu();
 }
 
@@ -200,47 +201,19 @@ env_setup_vm(struct Env *e)
 	//	is an exception -- you need to increment env_pml4e's
 	//	pp_ref for env_free to work correctly.
 	//    - The functions in kern/pmap.h are handy.
-
+	e->env_pml4e = (pml4e_t*)page2kva(p);
+	e->env_cr3 = page2pa(p);
+	p->pp_ref++;
+	size_t pml4e_map = 0;
+	for ( ;pml4e_map < NPMLENTRIES ; pml4e_map++) {
+			if (pml4e_map >= PML4(UTOP)) {
+				e->env_pml4e[pml4e_map] = boot_pml4e[pml4e_map] | (PTE_P & ~(PTE_W | PTE_U));
+			}
+	}
 	// LAB 3: Your code here.
-
+	
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
-	
-	p->pp_ref++;
-
-	pde_t *pgdir;
-	pgdir = (pde_t*)page2kva(p);	
-	
-	// Data from UTOP here	
-	pml4e_t *root_pml4e = boot_pml4e + PML4(UTOP);	
-	if(!(*root_pml4e & PTE_P))
-		return -E_NO_MEM;
-	
-	pdpe_t *root_pdpe = KADDR(PTE_ADDR(*root_pml4e));
-	root_pdpe += PDPE(UTOP);
-	
-	if(!(*root_pdpe & PTE_P))
-		return -E_NO_MEM;
-
-	pde_t *root_pgdir = KADDR(PTE_ADDR(*root_pdpe));
-	memcpy(pgdir, root_pgdir, PGSIZE);
-	
-
-	if(!(p = page_alloc(ALLOC_ZERO)))
-		return -E_NO_MEM;
-	p->pp_ref++;
-	
-	pdpe_t *pdpe = (pdpe_t*)page2kva(p);
-	pdpe[PDPE(UTOP)] = PADDR(pgdir) | PTE_USER;
-	
-	if(!(p = page_alloc(ALLOC_ZERO)))
-		return -E_NO_MEM;
-	p->pp_ref++;
-	
-	e->env_pml4e = (pml4e_t*)page2kva(p);
-	e->env_pml4e[PML4(UTOP)] = PADDR(pdpe) | PTE_USER;
-	e->env_cr3 = PADDR(e->env_pml4e);
-
 	e->env_pml4e[PML4(UVPT)] = e->env_cr3 | PTE_P | PTE_U;
 
 	return 0;
@@ -303,8 +276,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
-	e->env_tf.tf_eflags |= FL_IF;
-
+	e->env_tf.tf_eflags |= FL_IF; 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
@@ -336,18 +308,15 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
-
-	
-	char *start = (char *)ROUNDDOWN(va, PGSIZE);
-	char *end = (char*)ROUNDUP((char*)va+len, PGSIZE);
-	struct PageInfo *p;
-	char *v;
-	for (v = start; v < end; v+=PGSIZE) 
-	{
-		p = page_alloc(ALLOC_ZERO);
-		if(p == NULL)
-		    panic("Page alloc fail\n");
-		page_insert(e->env_pml4e, p, v, PTE_P | PTE_U | PTE_W);
+	size_t start = ROUNDDOWN((uint64_t)va, PGSIZE);
+	size_t end = ROUNDUP((uint64_t)(va+len), PGSIZE);
+	while (start < end) {
+		struct PageInfo* p = page_alloc(0);
+		if(!p)
+			panic("No memory available for allocation to environment");
+		if(page_insert(e->env_pml4e, p, (void*) start, PTE_U|PTE_P|PTE_W) < 0)
+			panic("CAnnot allocate any memory for page directory allocation");
+		start += PGSIZE;
 	}
 }
 
@@ -403,41 +372,32 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
 	//  What?  (See env_run() and env_pop_tf() below.)
+	struct Elf *elfhdr = (struct Elf*)binary;
+	struct Proghdr *ph, *eph;
+    // is this a valid ELF?
+    if (elfhdr->e_magic != ELF_MAGIC)
+        panic("Bad ELF");
 
+	lcr3(e->env_cr3);
+    // load each program segment (ignores ph flags)
+    // test whether this has written to 0x100000
+    ph = (struct Proghdr *) ((uint8_t *) elfhdr + elfhdr->e_phoff);
+    eph = ph + elfhdr->e_phnum;
+    for (; ph < eph; ph++) {
+		if (ph->p_type == ELF_PROG_LOAD) {
+			region_alloc(e,(void*)ph->p_va, ph->p_memsz);
+			memcpy((void*)ph->p_va,(void*)(binary+ph->p_offset), ph->p_filesz);
+			memset((void*)(ph->p_va+ph->p_filesz), 0, ph->p_memsz-ph->p_filesz);
+		}
+	}
+
+	e->env_tf.tf_rip = elfhdr->e_entry;	
 	// LAB 3: Your code here
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-
-	   // LAB 3: Your code here.
-	    //cprintf("\nIn load mode\n");
-	    struct Proghdr *ph, *eph;
-	    struct Elf * header;
-	    e->elf = binary;
-	    header = (struct Elf *) binary;
-	    
-	    if (header->e_magic != ELF_MAGIC)
-		panic("header Problem");
-	    
-	    ph = (struct Proghdr *) ((uint8_t *) header + header->e_phoff);
-	    eph = ph + header->e_phnum; 
-
-	    for (; ph < eph; ph++)
-	      {
-		if(ph->p_type == ELF_PROG_LOAD)
-		  {
-		     region_alloc(e, (void *)ph->p_va, ph->p_memsz);
-		     lcr3(e->env_cr3);
-		     memset((void *)ph->p_va, 0, ph->p_memsz);
-		     memcpy((void *)ph->p_va, (uint8_t *)header + ph->p_offset, ph->p_filesz);
-		     lcr3(boot_cr3);
-		  }
-
-	      }
-
-	    e->env_tf.tf_rip = (uintptr_t)(header->e_entry);
-            //e->env_tf.tf_rsp = (USTACKTOP);
-	    region_alloc (e , (void *)(USTACKTOP - PGSIZE), PGSIZE);
-        		
+	region_alloc(e, (void*)(USTACKTOP-PGSIZE), PGSIZE);
+	// LAB 3: Your code here.
+    e->elf = binary;
 }
 
 //
@@ -452,18 +412,18 @@ env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
 
-   struct Env *env;
-   //env_alloc(&env, curenv->env_id);
-   env_alloc(&env, 0);
-   load_icode(env, binary);
-   env->env_type = type;  
-
-   // If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
-   // LAB 5: Your code here.
-   if(type == ENV_TYPE_FS)
-     env->env_tf.tf_eflags |= FL_IOPL_3; 
-   
-
+	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+	// LAB 5: Your code here.
+	struct Env* e;
+	uint32_t r = env_alloc(&e, 0);
+	if(r < 0) {
+		panic("env alloc: %e",r);
+	}
+	load_icode(e, binary);
+	e->env_type = type;
+	if(type == ENV_TYPE_FS) {
+		e->env_tf.tf_eflags |= FL_IOPL_MASK;
+	}
 }
 
 //
@@ -574,7 +534,6 @@ env_pop_tf(struct Trapframe *tf)
 	// Record the CPU we are running on for user-space debugging
 	curenv->env_cpunum = cpunum();
 
-	//cprintf("\n\n tf %16.0x\n\n", tf->tf_rip);
 	__asm __volatile("movq %0,%%rsp\n"
 			 POPA
 			 "movw (%%rsp),%%es\n"
@@ -592,7 +551,8 @@ env_pop_tf(struct Trapframe *tf)
 //
 // This function does not return.
 //
-void env_run(struct Env *e)
+void
+env_run(struct Env *e)
 {
 	// Step 1: If this is a context switch (a new environment is running):
 	//	   1. Set the current environment (if any) back to
@@ -610,23 +570,16 @@ void env_run(struct Env *e)
 	//	e->env_tf.  Go back through the code you wrote above
 	//	and make sure you have set the relevant parts of
 	//	e->env_tf to sensible values.
-
-	// LAB 3: Your code here.
-        //cprintf("\nIn running mode\n");
-	
-	if (curenv != NULL && curenv->env_status == ENV_RUNNING)
-	   curenv->env_status = ENV_RUNNABLE;
-	
-	 curenv = e;
-	 curenv->env_status = ENV_RUNNING;
-	 curenv->env_runs++;
-	
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(curenv->env_cr3);	
 	unlock_kernel();
-	lcr3(curenv->env_cr3);
-	env_pop_tf(&(curenv->env_tf));
-	panic("env_run not yet implemented");
-	 
-		
-     
+	env_pop_tf(&e->env_tf);
+	// LAB 3: Your code here.
+	//panic("env_run not yet implemented");
 }
 

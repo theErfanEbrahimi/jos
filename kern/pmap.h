@@ -46,6 +46,7 @@ extern pml4e_t *boot_pml4e;
 enum {
 	// For page_alloc, zero the returned physical page.
 	ALLOC_ZERO = 1<<0,
+	ALLOC_NONE,
 };
 
 void    x64_vm_init();

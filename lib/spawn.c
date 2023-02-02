@@ -97,11 +97,12 @@ spawn(const char *prog, const char **argv)
 		cprintf("elf magic %08x want %08x\n", elf->e_magic, ELF_MAGIC);
 		return -E_NOT_EXEC;
 	}
+
 	// Create new child environment
 	if ((r = sys_exofork()) < 0)
 		return r;
 	child = r;
-	
+
 	// Set up trap frame, including initial stack.
 	child_tf = envs[ENVX(child)].env_tf;
 	child_tf.tf_rip = elf->e_entry;
@@ -123,7 +124,6 @@ spawn(const char *prog, const char **argv)
 	}
 	close(fd);
 	fd = -1;
-	
 
 	// Copy shared library state.
 	if ((r = copy_shared_pages(child)) < 0)
@@ -134,6 +134,7 @@ spawn(const char *prog, const char **argv)
 
 	if ((r = sys_env_set_status(child, ENV_RUNNABLE)) < 0)
 		panic("sys_env_set_status: %e", r);
+
 	return child;
 
 error:
@@ -284,7 +285,7 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 			if ((r = sys_page_alloc(0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
 				return r;
 			if ((r = seek(fd, fileoffset + i)) < 0)
-				return r;	
+				return r;
 			if ((r = readn(fd, UTEMP, MIN(PGSIZE, filesz-i))) < 0)
 				return r;
 			if ((r = sys_page_map(0, UTEMP, child, (void*) (va + i), perm)) < 0)
@@ -300,26 +301,50 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
-	uint64_t addr;
-	for (addr = UTEXT; addr < (USTACKTOP); addr += PGSIZE) 
-	{
-               if(!(uvpml4e[VPML4E(addr)]))
-		 continue;
-		
-		if(!(uvpde[VPDPE(addr)]))
-	          continue;
-	
-                if(!(uvpd[VPD(addr)]))
-		  continue;
-		
-		if(!(uvpt[VPN(addr)]))
-		  continue; 
-                
-		int perm = uvpt[VPN(addr)];
-                if (perm & PTE_SHARE)
-                   sys_page_map(0, (void *)addr, child, (void *)addr, perm & PTE_SYSCALL);       
-        }
+	int r = 0;
+ 	uint64_t pml;
+	uint64_t pdpe;
+	uint64_t pde;
+    uint64_t pte;
+    uint64_t each_pde = 0;
+    uint64_t each_pte = 0;
+    uint64_t each_pdpe = 0;
+    for(pml = 0; pml < VPML4E(UTOP); pml++) {
+        if(uvpml4e[pml] & PTE_P) {
 
+            for(pdpe = 0; pdpe < NPDPENTRIES; pdpe++, each_pdpe++) {
+                if(uvpde[each_pdpe] & PTE_P) {
+
+                    for(pde= 0; pde < NPDENTRIES; pde++, each_pde++) {
+                        if(uvpd[each_pde] & PTE_P) {
+
+                            for(pte = 0; pte < NPTENTRIES; pte++, each_pte++) {
+                                if(uvpt[each_pte] & PTE_SHARE) {
+				
+									int perm = uvpt[each_pte] & PTE_SYSCALL;
+									void* addr = (void*) (each_pte * PGSIZE);
+									r = sys_page_map(0, addr, child, addr, perm);
+                                    if (r < 0)
+                             	       panic("\n couldn't call fork %e\n", r);
+                                }
+                            }
+                        }
+          				else {
+                            each_pte = (each_pde+1)*NPTENTRIES;
+                        }
+                    }
+
+                }
+                else {
+                    each_pde = (each_pdpe+1)* NPDENTRIES;
+                }
+
+            }
+        }
+        else {
+            each_pdpe = (pml+1) *NPDPENTRIES;
+		}
+	}
 	return 0;
 }
 

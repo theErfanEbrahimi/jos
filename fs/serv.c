@@ -124,12 +124,11 @@ serve_open(envid_t envid, struct Fsreq_open *req,
 	}
 	fileid = r;
 
-	/*if (req->req_omode != 0) {
-		cprintf("file_open omode 0x%x unsupported", req->req_omode);
+	if (req->req_omode != 0) {
 		if (debug)
 			cprintf("file_open omode 0x%x unsupported", req->req_omode);
 		return -E_INVAL;
-	}*/
+	}
 
 	if ((r = file_open(path, &f)) < 0) {
 		if (debug)
@@ -169,7 +168,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	struct Fsret_read *ret = &ipc->readRet;
 
 	if (debug)
-	   cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Look up the file id, read the bytes into 'ret', and update
 	// the seek position.  Be careful if req->req_n > PGSIZE
@@ -178,59 +177,22 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	// so filling in ret will overwrite req.
 	//
 	// LAB 5: Your code here
-	int nbytes = req->req_n;
-	if(nbytes > PGSIZE)
-	   nbytes = PGSIZE;
-
-	struct OpenFile *o;
-	int r;
-	ssize_t read;
-	if ((r = openfile_lookup(envid, (uint32_t)req->req_fileid, &o)) < 0)
-	   return r;
-	
-	if((read = file_read(o->o_file, ret->ret_buf, nbytes, o->o_fd->fd_offset)) < 0)
-	   return read;
-	
-	o->o_fd->fd_offset = o->o_fd->fd_offset + read;
- 
-	return read;
-	panic("serve_read not implemented");
+	//panic("serve_read not implemented");
+	struct OpenFile *po;
+	int r = openfile_lookup(envid, req->req_fileid, &po);
+	if (r < 0) {
+		cprintf("somwthing wrong in lookup %e", r);
+		return r;
+	}
+	size_t req_size = (req->req_n < PGSIZE) ? req->req_n : PGSIZE;
+	ssize_t ret_size = file_read(po->o_file, ret->ret_buf, req_size, po->o_fd->fd_offset);
+	if(ret_size<0) {
+		return ret_size;
+	}
+	po->o_fd->fd_offset += ret_size;
+	return ret_size;
 }
 
-
-int
-serve_write(envid_t envid, union Fsipc *ipc)
-{
-	struct Fsreq_write *req = &ipc->write;
-	//struct Fsret_read *ret = &ipc->readRet;
-
-	if (debug)
-	   cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
-
-	// Look up the file id, read the bytes into 'ret', and update
-	// the seek position.  Be careful if req->req_n > PGSIZE
-	// (remember that read is always allowed to return fewer bytes
-	// than requested).  Also, be careful because ipc is a union,
-	// so filling in ret will overwrite req.
-	//
-	int nbytes = req->req_n;
-	if(nbytes > PGSIZE)
-	   nbytes = PGSIZE;
-
-	struct OpenFile *o;
-	int r;
-	int write;
-	if ((r = openfile_lookup(envid, (uint32_t)req->req_fileid, &o)) < 0)
-	   return r;
-
-	//cprintf("inside %d\n", o->o_fd->fd_offset);
-	if((write = file_write(o->o_file, (void *)req->req_buf, nbytes, o->o_fd->fd_offset)) < 0)
-	   return write;
-	
-	o->o_fd->fd_offset = o->o_fd->fd_offset + write;
- 
-	return write;
-}
 
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -269,7 +231,6 @@ fshandler handlers[] = {
 	// Open is handled specially because it passes pages
 	/* [FSREQ_OPEN] =	(fshandler)serve_open, */
 	[FSREQ_READ] =		serve_read,
-	[FSREQ_WRITE] =		(fshandler)serve_write,
 	[FSREQ_STAT] =		serve_stat,
 	[FSREQ_FLUSH] =		(fshandler)serve_flush,
 };

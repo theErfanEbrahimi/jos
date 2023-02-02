@@ -17,8 +17,7 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  */
-#define COLOR1
-	
+
 static const char * const error_string[MAXERROR] =
 {
 	[E_UNSPECIFIED]	= "unspecified error",
@@ -103,39 +102,13 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	char padc;
 	va_list aq;
 	va_copy(aq,ap);
-#ifdef COLOR
-        const char * color;
-#endif         
 	while (1) {
-#ifdef COLOR              
-                color = "\e[1;37m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-   
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
-	                 {
-#ifdef COLOR              
-                color = "\e[0m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
-			  return;
-			}
+				return;
 			putch(ch, putdat);
 		}
+
 		// Process a %-escape sequence
 		padc = ' ';
 		width = -1;
@@ -198,27 +171,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-#ifdef COLOR              
-                color = "\e[37m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
 			putch(va_arg(aq, int), putdat);
-#ifdef COLOR              
-                color = "\e[0m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
 			break;
 
 		// error message
@@ -234,16 +187,6 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// string
 		case 's':
-#ifdef COLOR              
-                color = "\e[1;37m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
 			if ((p = va_arg(aq, char *)) == NULL)
 				p = "(null)";
 			if (width > 0 && padc != '-')
@@ -256,31 +199,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 					putch(ch, putdat);
 			for (; width > 0; width--)
 				putch(' ', putdat);
-#ifdef COLOR              
-                color = "\e[0m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
 			break;
 
 		// (signed) decimal
 		case 'd':
-#ifdef COLOR              
-                color = "\e[1;31m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
 			num = getint(&aq, 3);
 			if ((long long) num < 0) {
 				putch('-', putdat);
@@ -291,57 +213,21 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// unsigned decimal
 		case 'u':
-#ifdef COLOR              
-                color = "\e[1;35m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-			
 			num = getuint(&aq, 3);
 			base = 10;
 			goto number;
 
 		// (unsigned) octal
 		case 'o':
-#ifdef COLOR              
-                color = "\e[1;33m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
-			// Replace this with your code.
-		        num = getuint(&aq, 3);
+			// Gets the variable argument with type integer from the point which was processed last by va_arg
+			// calls getuint which returns a long long value, which then calls printnum which prints based on
+			// base value.
+			num = getuint(&aq, 3);
 			base = 8;
 			goto number;
 
-			//putch('A', putdat);
-			//putch('B', putdat);
-			//putch('C', putdat);
-			//break;
-
 		// pointer
 		case 'p':
-#ifdef COLOR              
-                color = "\e[1;38m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
 			putch('0', putdat);
 			putch('x', putdat);
 			num = (unsigned long long)
@@ -351,33 +237,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (unsigned) hexadecimal
 		case 'x':
-#ifdef COLOR              
-                color = "\e[1;32m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
 			num = getuint(&aq, 3);
 			base = 16;
 		number:
-
 			printnum(putch, putdat, num, base, width, padc);
-#ifdef COLOR              
-                color = "\e[0m";
-                ch = *(unsigned char *) color;
-                while (ch)
-                { 
-	          putch(ch, putdat);
-                  color++;
-                  ch = *(unsigned char *) color;
-                }
-#endif
-
 			break;
 
 		// escaped '%' character
@@ -388,14 +251,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// unrecognized escape sequence - just print it literally
 		default:
 			putch('%', putdat);
-
 			for (fmt--; fmt[-1] != '%'; fmt--)
 				/* do nothing */;
 			break;
 		}
 	}
-    
-va_end(aq);
+    va_end(aq);
 }
 
 void

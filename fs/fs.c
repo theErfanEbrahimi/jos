@@ -62,29 +62,31 @@ fs_init(void)
 //
 // Analogy: This is like pgdir_walk for files.
 // Hint: Don't forget to clear any block you allocate.
+
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-        // LAB 5: Your code here.
-	if(filebno >= NDIRECT + NINDIRECT)
-	  return -E_INVAL;
-
-	if(filebno < NDIRECT)
-	   *ppdiskbno = &f->f_direct[filebno];
-	else
-	{
-	   if(f->f_indirect == 0)
-	   {
-	     if(alloc == 0)
-	       return -E_NOT_FOUND;
-	   }
-	   uint32_t bno = filebno - 10;
-	   uint32_t * addr = (uint32_t *) diskaddr(f->f_indirect);
-	  *ppdiskbno = &addr[bno];
+	if (filebno >= NDIRECT + NINDIRECT) {
+		return -E_INVAL;
 	}
-
+	uint32_t nblock = f->f_size / BLKSIZE;
+	if (filebno > nblock) {
+		return -E_NOT_FOUND;
+	}
+	if (filebno < NDIRECT) {
+		*ppdiskbno = &f->f_direct[filebno];
+		return 0;
+	}
+	else {
+		if(!f->f_indirect) {
+			return -E_NOT_FOUND;
+		}
+		uint32_t* index = (uint32_t*)diskaddr(f->f_indirect);
+		*ppdiskbno = &index[filebno - NDIRECT] ;
+	}
 	return 0;
-        //panic("file_block_walk not implemented");
+    // LAB 5: Your code here.
+	// panic("file_block_walk not implemented");
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -97,16 +99,19 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
+	if (filebno >= NDIRECT + NINDIRECT) {
+		return -E_INVAL;
+	}
+	uint32_t *ppdiskbno;
+	int r = file_block_walk(f, filebno, &ppdiskbno, false);
+	if (r < 0)
+		return r;
+    if (!*ppdiskbno)
+        return -E_NO_DISK;
+	*blk = (char*)diskaddr(*ppdiskbno);
+	return 0;
 	// LAB 5: Your code here.
-	uint32_t *blocknumber;
-	int error = file_block_walk(f,filebno, &blocknumber, 1);
-	if(error < 0)
-	   return error;
-
-	*blk = (char *)diskaddr(*blocknumber);
- 	return 0;
-		
-	panic("file_block_walk not implemented");
+	//panic("file_block_walk not implemented");
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
@@ -238,7 +243,6 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 			return r;
 		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
 		memmove(buf, blk + pos % BLKSIZE, bn);
-
 		pos += bn;
 		buf += bn;
 	}
@@ -246,43 +250,5 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 	return count;
 }
 
-int file_write(struct File *f, const void *buf, size_t count, off_t offset)
-{
-	int r, bn;
-	off_t pos;
-	char *blk;
-	char *t = (char *)buf;
-	uint64_t blockno;
-	//cprintf("HERE inside in file_write %d %d\n", count, f->f_size);
-	//if (offset+count >= f->f_size)
-	//{
-	   
-	  // return 0;
-	//}
-	
-	count = MIN(count, f->f_size - offset);
-
-	for (pos = offset; pos < offset + count; ) {
-		if ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0)
-			return r;
-		
-		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
-		//cprintf("HERE inside in file_write %d %d %d\n", count, f->f_size, bn);
-		memmove(blk, buf, bn);
-		blockno = ((uint64_t)blk - DISKMAP) / BLKSIZE;
-
-		if((r = ide_write(BLKSECTS * blockno, (void *)blk, 1) < 0))
-                   panic("flush_block:failed to write the sector\n");
-		 //cprintf("value r %d\n", r);
-		 if((r = sys_page_map(thisenv->env_id, (void *)blk, thisenv->env_id, (void *)blk, PTE_SYSCALL) < 0))
-                       panic("page map failed\n");
-		//cprintf("value r%d\n", r);
-		//cprintf("%16.0x %d %d\n", blk, blockno, BLKSECTS);
-		pos += bn;
-		buf += bn;
-	}
-	//cprintf("file_write count%d\n", count);
-	return count;
-}
 
 
