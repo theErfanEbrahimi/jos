@@ -34,7 +34,7 @@ target remote localhost:1234
 echo + symbol-file obj/kern/kernel\n
 symbol-file obj/kern/kernel
 
-hbreak jumpto_longmode
+break jumpto_longmode
 commands
   set $amd64 = 1
   tbreak *0x0
@@ -44,5 +44,5 @@ commands
     set $amd64 = 0
     continue
   end
-  si 1000
+  si
 end
