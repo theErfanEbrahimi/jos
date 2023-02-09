@@ -21,7 +21,7 @@ xopen(const char *path, int mode)
 void
 umain(int argc, char **argv)
 {
-	int64_t r, f, i;
+	int r, f, i;
 	struct Fd *fd;
 	struct Fd fdcopy;
 	struct Stat st;

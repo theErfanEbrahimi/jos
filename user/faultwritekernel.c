@@ -5,6 +5,6 @@
 void
 umain(int argc, char **argv)
 {
-	*(unsigned*)0x8004000000 = 0;
+	*(unsigned*)0xf0100000 = 0;
 }
 

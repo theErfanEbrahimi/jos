@@ -34,11 +34,6 @@ typedef int bool;
 #define ROUNDUP(n, v) ((n) - 1 + (v) - ((n) - 1) % (v))
 #define MAX_DIR_ENTS 128
 
-#define FLAG_BIN 1
-#define FLAG_ETC 2
-#define FLAG_SBIN 3
-#define FLAG_ROOT 0
-
 struct Dir
 {
 	struct File *f;
@@ -54,12 +49,12 @@ uint32_t *bitmap;
 void
 panic(const char *fmt, ...)
 {
-        va_list ap;
+	va_list ap;
 
-        va_start(ap, fmt);
-        vfprintf(stderr, fmt, ap);
-        va_end(ap);
-        fputc('\n', stderr);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fputc('\n', stderr);
 	abort();
 }
 
@@ -68,7 +63,7 @@ readn(int f, void *out, size_t n)
 {
 	size_t p = 0;
 	while (p < n) {
-		size_t m = read(f, out + p, n - p);
+		ssize_t m = read(f, out + p, n - p);
 		if (m < 0)
 			panic("read: %s", strerror(errno));
 		if (m == 0)
@@ -226,9 +221,6 @@ main(int argc, char **argv)
 	int i;
 	char *s;
 	struct Dir root;
-	int flag=FLAG_ROOT;
-	struct Dir bin, sbin;
-	struct File *b, *sb;
 
 	assert(BLKSIZE % sizeof(struct File) == 0);
 
@@ -236,44 +228,15 @@ main(int argc, char **argv)
 		usage();
 
 	nblocks = strtol(argv[2], &s, 0);
-	if (*s || s == argv[2] || nblocks < 2 || nblocks > 10240)
+	if (*s || s == argv[2] || nblocks < 2 || nblocks > 1024)
 		usage();
 
 	opendisk(argv[1]);
 
 	startdir(&super->s_root, &root);
-
-    b = diradd(&root, FTYPE_DIR, "bin");
-    startdir(b, &bin);
-    
-    sb = diradd(&root, FTYPE_DIR, "sbin");
-    startdir(sb, &sbin);
-
-	for (i = 3; i < argc; i++) {
-       if(strcmp("-b", argv[i]) == 0) {
-           flag = FLAG_BIN;
-            continue;
-        } else if(strcmp("-sb", argv[i]) == 0) {
-            flag = FLAG_SBIN;
-            continue;
-        }
-
-        switch (flag){
-            case FLAG_ROOT:
-                writefile(&root, argv[i]);
-                break;
-            case FLAG_BIN:
-                writefile(&bin, argv[i]);
-                break;
-            case FLAG_SBIN:
-                writefile(&sbin, argv[i]);
-                break;
-		}
-    }
-	
-    finishdir(&bin);
-    finishdir(&sbin);
-    finishdir(&root);
+	for (i = 3; i < argc; i++)
+		writefile(&root, argv[i]);
+	finishdir(&root);
 
 	finishdisk();
 	return 0;

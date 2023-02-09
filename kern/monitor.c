@@ -9,13 +9,11 @@
 
 #include <kern/console.h>
 #include <kern/monitor.h>
-#include <kern/dwarf.h>
 #include <kern/kdebug.h>
-#include <kern/dwarf_api.h>
 #include <kern/trap.h>
 
-
 #define CMDBUF_SIZE	80	// enough for one VGA text line
+
 
 struct Command {
 	const char *name;
@@ -26,10 +24,9 @@ struct Command {
 
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
+	{ "backtrace", "Display a listing of function call frames", mon_backtrace },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "Displays the backtrace information for debugging", mon_backtrace },
 };
-#define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -38,7 +35,7 @@ mon_help(int argc, char **argv, struct Trapframe *tf)
 {
 	int i;
 
-	for (i = 0; i < NCOMMANDS; i++)
+	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		cprintf("%s - %s\n", commands[i].name, commands[i].desc);
 	return 0;
 }
@@ -62,35 +59,24 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Displays the backtrace of the called functions.
-	uint64_t* rbp = (uint64_t*)read_rbp();
-	uint64_t rip;
-	read_rip(rip);
-	int count = 0;
-	cprintf("Stack backtrace:\n"); 
-	while (rbp != 0) {//stop when you reach the top of the function call
-		//print the current values of rbp and rip and then dereference the previous values.
-		cprintf("  rbp %#016x  rip %#016x\n", (uint64_t)rbp, rip);
-		struct Ripdebuginfo info;
-		if (debuginfo_rip(rip, &info) == 0) {
-			//check if the structure is populated.
-			cprintf("       %s:%d: %s+%#016x  args:%d", info.rip_file, info.rip_line, info.rip_fn_name, (uint64_t)rip-info.rip_fn_addr, info.rip_fn_narg);
-			//Print the arguments
-			int args = info.rip_fn_narg;
-			int argc = 1;
-			while (args > 0) {
-				cprintf("  %#016x", *(rbp-argc)>>32);
-				args--;
-				argc++;
-			}
-			cprintf("\n");
-		}
-		rip = *(rbp + 1);	
-		rbp = (uint64_t*)  *rbp;
-		count++;
-	}
-	return count;
+	// Your code here.
+	uint32_t ebp = read_ebp();
+	uint32_t *arg = (uint32_t *)ebp;
+	struct Eipdebuginfo info;
+
+	do {
+		debuginfo_eip(arg[1], &info);
+		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n",
+				arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
+		cprintf("\tfile %s:", info.eip_file);
+		cprintf("%d:", info.eip_line);
+		cprintf(" %.*s\n", info.eip_fn_namelen, info.eip_fn_name);
+		arg = (uint32_t *)arg[0];
+	}while(arg[0] != 0);
+	return 0;
 }
+
+
 
 /***** Kernel monitor command interpreter *****/
 
@@ -128,7 +114,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	// Lookup and invoke the command
 	if (argc == 0)
 		return 0;
-	for (i = 0; i < NCOMMANDS; i++) {
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
 		if (strcmp(argv[0], commands[i].name) == 0)
 			return commands[i].func(argc, argv, tf);
 	}
@@ -154,4 +140,3 @@ monitor(struct Trapframe *tf)
 				break;
 	}
 }
-

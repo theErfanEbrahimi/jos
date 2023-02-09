@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 
 #include <kern/console.h>
+#include <kern/trap.h>
 #include <kern/picirq.h>
 
 static void cons_intr(int (*proc)(void));
@@ -103,7 +104,7 @@ serial_init(void)
 
 	// Enable serial interrupts
 	if (serial_exists)
-		irq_setmask_8259A(irq_mask_8259A & ~(1<<4));
+		irq_setmask_8259A(irq_mask_8259A & ~(1<<IRQ_SERIAL));
 }
 
 
@@ -195,11 +196,10 @@ cga_putc(int c)
 		break;
 	}
 
-	// When the crt pos is more than that of CRT_SIZE (if output exceeds CRT_SIZE), it adds one more row at the end 
-	// filling it up with ' ' (scrolls down to the next line). The data from the second line of the screen to the end 
-	// is put into crt_buf, effectively removing the first line of the screen
+	// What is the purpose of this?
 	if (crt_pos >= CRT_SIZE) {
 		int i;
+
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
 			crt_buf[i] = 0x0700 | ' ';
@@ -321,10 +321,14 @@ static int
 kbd_proc_data(void)
 {
 	int c;
-	uint8_t data;
+	uint8_t stat, data;
 	static uint32_t shift;
 
-	if ((inb(KBSTATP) & KBS_DIB) == 0)
+	stat = inb(KBSTATP);
+	if ((stat & KBS_DIB) == 0)
+		return -1;
+	// Ignore data from mouse.
+	if (stat & KBS_TERR)
 		return -1;
 
 	data = inb(KBDATAP);
@@ -374,9 +378,9 @@ kbd_intr(void)
 static void
 kbd_init(void)
 {
-	// Drain the kbd buffer so that Bochs generates interrupts.
+	// Drain the kbd buffer so that QEMU generates interrupts.
 	kbd_intr();
-	irq_setmask_8259A(irq_mask_8259A & ~(1<<1));
+	irq_setmask_8259A(irq_mask_8259A & ~(1<<IRQ_KBD));
 }
 
 

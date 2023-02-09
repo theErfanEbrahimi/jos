@@ -45,7 +45,7 @@ struct Stat {
 };
 
 char*	fd2data(struct Fd *fd);
-uint64_t	fd2num(struct Fd *fd);
+int	fd2num(struct Fd *fd);
 int	fd_alloc(struct Fd **fd_store);
 int	fd_close(struct Fd *fd, bool must_exist);
 int	fd_lookup(int fdnum, struct Fd **fd_store);

@@ -19,7 +19,7 @@ fsipc(unsigned type, void *dstva)
 	if (fsenv == 0)
 		fsenv = ipc_find_env(ENV_TYPE_FS);
 
-	//static_assert(sizeof(fsipcbuf) == PGSIZE);
+	static_assert(sizeof(fsipcbuf) == PGSIZE);
 
 	if (debug)
 		cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
@@ -39,8 +39,10 @@ struct Dev devfile =
 	.dev_id =	'f',
 	.dev_name =	"file",
 	.dev_read =	devfile_read,
-	.dev_close = devfile_flush,
+	.dev_close =	devfile_flush,
 	.dev_stat =	devfile_stat,
+	.dev_write =	devfile_write,
+	.dev_trunc =	devfile_trunc
 };
 
 // Open a file (or directory).
@@ -49,13 +51,9 @@ struct Dev devfile =
 // 	The file descriptor index on success
 // 	-E_BAD_PATH if the path is too long (>= MAXPATHLEN)
 // 	< 0 for other errors.
-
 int
 open(const char *path, int mode)
 {
-	if(strlen(path) >= MAXPATHLEN) {
-		return -E_BAD_PATH;
-	}
 	// Find an unused file descriptor page using fd_alloc.
 	// Then send a file-open request to the file server.
 	// Include 'path' and 'omode' in request,
@@ -69,20 +67,25 @@ open(const char *path, int mode)
 	// Return the file descriptor index.
 	// If any step after fd_alloc fails, use fd_close to free the
 	// file descriptor.
-	// LAB 5: Your code here
-	struct Fd *new_fd;
-	int r = fd_alloc(&new_fd);
-	if (r<0) {
+
+	int r;
+	struct Fd *fd;
+
+	if (strlen(path) >= MAXPATHLEN)
+		return -E_BAD_PATH;
+
+	if ((r = fd_alloc(&fd)) < 0)
+		return r;
+
+	strcpy(fsipcbuf.open.req_path, path);
+	fsipcbuf.open.req_omode = mode;
+
+	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+		fd_close(fd, 0);
 		return r;
 	}
-	fsipcbuf.open.req_omode = mode;
-	strcpy(fsipcbuf.open.req_path, path);
-	r = fsipc(FSREQ_OPEN, new_fd);
-	if (r<0) {
-		fd_close(new_fd, 0);
-		return r;	
-	}
-	return fd2num(new_fd);
+
+	return fd2num(fd);
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
@@ -112,15 +115,36 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	// filling fsipcbuf.read with the request arguments.  The
 	// bytes read will be written back to fsipcbuf by the file
 	// system server.
-	// LAB 5: Your code here
-	// panic("devfile_read not implemented");
-	fsipcbuf.read.req_fileid =  fd->fd_file.id;
+	int r;
+
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
 	fsipcbuf.read.req_n = n;
-	ssize_t nbytes = fsipc(FSREQ_READ, NULL);
-	if(nbytes > 0) {
-		memmove(buf, fsipcbuf.readRet.ret_buf, nbytes);
-	}
-	return nbytes;
+	if ((r = fsipc(FSREQ_READ, NULL)) < 0)
+		return r;
+	assert(r <= n);
+	assert(r <= PGSIZE);
+	memmove(buf, fsipcbuf.readRet.ret_buf, r);
+	return r;
+}
+
+
+// Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
+//
+// Returns:
+//	 The number of bytes successfully written.
+//	 < 0 on error.
+static ssize_t
+devfile_write(struct Fd *fd, const void *buf, size_t n)
+{
+	// Make an FSREQ_WRITE request to the file system server.  Be
+	// careful: fsipcbuf.write.req_buf is only so large, but
+	// remember that write is always allowed to write *fewer*
+	// bytes than requested.
+	// LAB 5: Your code here
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	memmove(fsipcbuf.write.req_buf, buf, n);
+	return fsipc(FSREQ_WRITE, NULL);
 }
 
 static int
@@ -136,3 +160,24 @@ devfile_stat(struct Fd *fd, struct Stat *st)
 	st->st_isdir = fsipcbuf.statRet.ret_isdir;
 	return 0;
 }
+
+// Truncate or extend an open file to 'size' bytes
+static int
+devfile_trunc(struct Fd *fd, off_t newsize)
+{
+	fsipcbuf.set_size.req_fileid = fd->fd_file.id;
+	fsipcbuf.set_size.req_size = newsize;
+	return fsipc(FSREQ_SET_SIZE, NULL);
+}
+
+
+// Synchronize disk with buffer cache
+int
+sync(void)
+{
+	// Ask the file server to update the disk
+	// by writing any dirty blocks in the buffer cache.
+
+	return fsipc(FSREQ_SYNC, NULL);
+}
+
