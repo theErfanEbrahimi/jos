@@ -1,31 +1,42 @@
-
 /* Simple linker script for the JOS kernel.
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
-OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64", "elf64-x86-64")
-OUTPUT_ARCH(i386:x86-64)
-ENTRY(_head64)
-/* STARTUP(obj/kern/bootstrap.o) */
+OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
+OUTPUT_ARCH(i386)
+ENTRY(_start)
 
 SECTIONS
 {
-    . = 0x100000;
-
-    .bootstrap : {
-        obj/kern/bootstrap.o (.text .data .bss)
-    }
-
 	/* Link the kernel at this address: "." means the current address */
-	. = 0x8004200000;
+	. = 0xF0100000;
 
-	.text : AT(0x200000) {
-		*(EXCLUDE_FILE(obj/kern/bootstrap.o) .text .stub .text.* .gnu.linkonce.t.*)
+	/* AT(...) gives the load address of this section, which tells
+	   the boot loader where to load the kernel in physical memory */
+	.text : AT(0x100000) {
+		*(.text .stub .text.* .gnu.linkonce.t.*)
 	}
 
 	PROVIDE(etext = .);	/* Define the 'etext' symbol to this value */
 
 	.rodata : {
-		*(EXCLUDE_FILE(obj/kern/bootstrap.o) .rodata .rodata.* .gnu.linkonce.r.*)
+		*(.rodata .rodata.* .gnu.linkonce.r.*)
+	}
+
+	/* Include debugging information in kernel memory */
+	.stab : {
+		PROVIDE(__STAB_BEGIN__ = .);
+		*(.stab);
+		PROVIDE(__STAB_END__ = .);
+		BYTE(0)		/* Force the linker to allocate space
+				   for this section */
+	}
+
+	.stabstr : {
+		PROVIDE(__STABSTR_BEGIN__ = .);
+		*(.stabstr);
+		PROVIDE(__STABSTR_END__ = .);
+		BYTE(0)		/* Force the linker to allocate space
+				   for this section */
 	}
 
 	/* Adjust the address for the data segment to the next page */
@@ -33,44 +44,19 @@ SECTIONS
 
 	/* The data segment */
 	.data : {
-		*(EXCLUDE_FILE(obj/kern/bootstrap.o) .data)
+		*(.data .data.*)
 	}
-
-	PROVIDE(edata = .);
 
 	.bss : {
-		*(EXCLUDE_FILE(obj/kern/bootstrap.o) .bss)
+		PROVIDE(edata = .);
+		*(.dynbss)
+		*(.bss .bss.*)
+		*(COMMON)
+		PROVIDE(end = .);
 	}
 
-	PROVIDE(end = .);
-
-	/* "Borrowed" from Linux kernel */
-	/* Include debugging information in kernel memory */
-        /* DWARF 1 */                                           
-	.debug          0 : { *(.debug) }
-        .line           0 : { *(.line) }
-        /* GNU DWARF 1 extensions */
-        .debug_srcinfo  0 : { *(.debug_srcinfo) }
-        .debug_sfnames  0 : { *(.debug_sfnames) }
-        /* DWARF 1.1 and DWARF 2 */
-        .debug_aranges  0 : { *(.debug_aranges) }
-        .debug_pubnames 0 : { *(.debug_pubnames) }
-        /* DWARF 2 */
-        .debug_info     0 : { *(.debug_info
-        .gnu.linkonce.wi.*) }
-        .debug_abbrev   0 : { *(.debug_abbrev) }
-        .debug_line     0 : { *(.debug_line) }
-        .debug_frame    0 : { *(.debug_frame) }
-        .debug_str      0 : { *(.debug_str) }
-        .debug_loc      0 : { *(.debug_loc) }
-        .debug_macinfo  0 : { *(.debug_macinfo) }
-        /* SGI/MIPS DWARF 2 extensions */ 
-        .debug_weaknames 0 : { *(.debug_weaknames) }
-        .debug_funcnames 0 : { *(.debug_funcnames) }
-        .debug_typenames 0 : { *(.debug_typenames) }
-        .debug_varnames  0 : { *(.debug_varnames) }
 
 	/DISCARD/ : {
-		*(.eh_frame .note.GNU-stack)
+		*(.eh_frame .note.GNU-stack .comment .note)
 	}
 }

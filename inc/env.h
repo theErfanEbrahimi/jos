@@ -8,8 +8,7 @@
 #include <inc/memlayout.h>
 
 typedef int32_t envid_t;
-extern pml4e_t *boot_pml4e;
-extern physaddr_t boot_cr3;
+
 // An environment ID 'envid_t' has three parts:
 //
 // +1+---------------21-----------------+--------10--------+
@@ -18,7 +17,7 @@ extern physaddr_t boot_cr3;
 // +------------------------------------+------------------+
 //                                       \--- ENVX(eid) --/
 //
-// The environment index ENVX(eid) equals the environment's offset in the
+// The environment index ENVX(eid) equals the environment's index in the
 // 'envs[]' array.  The uniqueifier distinguishes environments that were
 // created at different times, but share the same environment index.
 //
@@ -47,7 +46,7 @@ enum EnvType {
 
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
-	struct Env *env_link;   // Free list link pointers
+	struct Env *env_link;		// Next free Env
 	envid_t env_id;			// Unique environment identifier
 	envid_t env_parent_id;		// env_id of this env's parent
 	enum EnvType env_type;		// Indicates special system environments
@@ -56,8 +55,7 @@ struct Env {
 	int env_cpunum;			// The CPU that the env is running on
 
 	// Address space
-	pml4e_t *env_pml4e;		// Kernel virtual address of page dir
-    physaddr_t env_cr3;
+	pde_t *env_pgdir;		// Kernel virtual address of page dir
 
 	// Exception handling
 	void *env_pgfault_upcall;	// Page fault upcall entry point
@@ -68,7 +66,6 @@ struct Env {
 	uint32_t env_ipc_value;		// Data value sent to us
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
-    uint8_t *elf;
 };
 
 #endif // !JOS_INC_ENV_H

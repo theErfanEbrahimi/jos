@@ -9,13 +9,11 @@
 
 #include <kern/console.h>
 #include <kern/monitor.h>
-#include <kern/dwarf.h>
 #include <kern/kdebug.h>
-#include <kern/dwarf_api.h>
 #include <kern/trap.h>
 
-
 #define CMDBUF_SIZE	80	// enough for one VGA text line
+
 
 struct Command {
 	const char *name;
@@ -27,9 +25,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "Displays the backtrace information for debugging", mon_backtrace },
 };
-#define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -38,7 +34,7 @@ mon_help(int argc, char **argv, struct Trapframe *tf)
 {
 	int i;
 
-	for (i = 0; i < NCOMMANDS; i++)
+	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		cprintf("%s - %s\n", commands[i].name, commands[i].desc);
 	return 0;
 }
@@ -62,35 +58,23 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Displays the backtrace of the called functions.
-	uint64_t* rbp = (uint64_t*)read_rbp();
-	uint64_t rip;
-	read_rip(rip);
-	int count = 0;
-	cprintf("Stack backtrace:\n"); 
-	while (rbp != 0) {//stop when you reach the top of the function call
-		//print the current values of rbp and rip and then dereference the previous values.
-		cprintf("  rbp %#016x  rip %#016x\n", (uint64_t)rbp, rip);
-		struct Ripdebuginfo info;
-		if (debuginfo_rip(rip, &info) == 0) {
-			//check if the structure is populated.
-			cprintf("       %s:%d: %s+%#016x  args:%d", info.rip_file, info.rip_line, info.rip_fn_name, (uint64_t)rip-info.rip_fn_addr, info.rip_fn_narg);
-			//Print the arguments
-			int args = info.rip_fn_narg;
-			int argc = 1;
-			while (args > 0) {
-				cprintf("  %#016x", *(rbp-argc)>>32);
-				args--;
-				argc++;
-			}
-			cprintf("\n");
-		}
-		rip = *(rbp + 1);	
-		rbp = (uint64_t*)  *rbp;
-		count++;
+	int *ebp = (int *)read_ebp();//like %ebp
+	cprintf("Stack backtrace:\n");
+	struct Eipdebuginfo info;//文件string信息，省略结构体定义
+
+	while (ebp != 0x0) {
+		// 第一行的当前ebp和栈环境是mon_backtrace的
+		cprintf("ebp %8x eip %8x args %08x %08x %08x %08x %08x ", 
+				ebp, ebp[1], ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+		debuginfo_eip(ebp[1], &info);
+		cprintf("%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, 
+				info.eip_fn_name, ebp[1]-info.eip_fn_addr);
+		ebp = (int *)ebp[0];
 	}
-	return count;
+	return 0;
 }
+
+
 
 /***** Kernel monitor command interpreter *****/
 
@@ -128,7 +112,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	// Lookup and invoke the command
 	if (argc == 0)
 		return 0;
-	for (i = 0; i < NCOMMANDS; i++) {
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
 		if (strcmp(argv[0], commands[i].name) == 0)
 			return commands[i].func(argc, argv, tf);
 	}
@@ -154,4 +138,3 @@ monitor(struct Trapframe *tf)
 				break;
 	}
 }
-

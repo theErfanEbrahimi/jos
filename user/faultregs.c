@@ -6,43 +6,29 @@ struct regs
 {
 	struct PushRegs regs;
 	uintptr_t eip;
-	uint64_t eflags;
+	uint32_t eflags;
 	uintptr_t esp;
 };
 
 #define SAVE_REGS(base) \
-	"\tmovq %%r14, 0x8("base")\n" \
-	"\tmovq %%r13, 0x10("base")\n" \
-	"\tmovq %%r12, 0x18("base")\n" \
-	"\tmovq %%r11, 0x20("base")\n" \
-	"\tmovq %%r10, 0x28("base")\n" \
-	"\tmovq %%r9, 0x30("base")\n" \
-	"\tmovq %%r8, 0x38("base")\n" \
-	"\tmovq %%rsi, 0x40("base")\n" \
-	"\tmovq %%rdi, 0x48("base")\n" \
-	"\tmovq %%rbp, 0x50("base")\n" \
-	"\tmovq %%rdx, 0x58("base")\n" \
-	"\tmovq %%rcx, 0x60("base")\n" \
-	"\tmovq %%rbx, 0x68("base")\n" \
-	"\tmovq %%rax, 0x70("base")\n" \
-	"\tmovq %%rsp, 0x88("base")\n"
+	"\tmovl %%edi, "base"+0x00\n" \
+	"\tmovl %%esi, "base"+0x04\n" \
+	"\tmovl %%ebp, "base"+0x08\n" \
+	"\tmovl %%ebx, "base"+0x10\n" \
+	"\tmovl %%edx, "base"+0x14\n" \
+	"\tmovl %%ecx, "base"+0x18\n" \
+	"\tmovl %%eax, "base"+0x1c\n" \
+	"\tmovl %%esp, "base"+0x28\n"
 
 #define LOAD_REGS(base) \
-	"\tmovq 0x8("base"), %%r14\n" \
-	"\tmovq 0x10("base"), %%r13\n" \
-	"\tmovq 0x18("base"), %%r12 \n" \
-	"\tmovq 0x20("base"), %%r11\n" \
-	"\tmovq 0x28("base"), %%r10\n" \
-	"\tmovq 0x30("base"), %%r9\n" \
-	"\tmovq 0x38("base"), %%r8\n" \
-	"\tmovq 0x40("base"), %%rsi\n" \
-	"\tmovq 0x48("base"), %%rdi\n" \
-	"\tmovq 0x50("base"), %%rbp\n" \
-	"\tmovq 0x58("base"), %%rdx\n" \
-	"\tmovq 0x60("base"), %%rcx\n" \
-	"\tmovq 0x68("base"), %%rbx\n" \
-	"\tmovq 0x70("base"), %%rax\n" \
-	"\tmovq 0x88("base"), %%rsp\n"
+	"\tmovl "base"+0x00, %%edi\n" \
+	"\tmovl "base"+0x04, %%esi\n" \
+	"\tmovl "base"+0x08, %%ebp\n" \
+	"\tmovl "base"+0x10, %%ebx\n" \
+	"\tmovl "base"+0x14, %%edx\n" \
+	"\tmovl "base"+0x18, %%ecx\n" \
+	"\tmovl "base"+0x1c, %%eax\n" \
+	"\tmovl "base"+0x28, %%esp\n"
 
 static struct regs before, during, after;
 
@@ -65,13 +51,13 @@ check_regs(struct regs* a, const char *an, struct regs* b, const char *bn,
 		}							\
 	} while (0)
 
-	CHECK(edi, regs.reg_rdi);
-	CHECK(esi, regs.reg_rsi);
-	CHECK(ebp, regs.reg_rbp);
-	CHECK(ebx, regs.reg_rbx);
-	CHECK(edx, regs.reg_rdx);
-	CHECK(ecx, regs.reg_rcx);
-	CHECK(eax, regs.reg_rax);
+	CHECK(edi, regs.reg_edi);
+	CHECK(esi, regs.reg_esi);
+	CHECK(ebp, regs.reg_ebp);
+	CHECK(ebx, regs.reg_ebx);
+	CHECK(edx, regs.reg_edx);
+	CHECK(ecx, regs.reg_ecx);
+	CHECK(eax, regs.reg_eax);
 	CHECK(eip, eip);
 	CHECK(eflags, eflags);
 	CHECK(esp, esp);
@@ -90,15 +76,15 @@ pgfault(struct UTrapframe *utf)
 {
 	int r;
 
-	if (utf->utf_fault_va != (uint64_t)UTEMP)
+	if (utf->utf_fault_va != (uint32_t)UTEMP)
 		panic("pgfault expected at UTEMP, got 0x%08x (eip %08x)",
-		      utf->utf_fault_va, utf->utf_rip);
+		      utf->utf_fault_va, utf->utf_eip);
 
 	// Check registers in UTrapframe
 	during.regs = utf->utf_regs;
-	during.eip = utf->utf_rip;
-	during.eflags = utf->utf_eflags & 0xfff;
-	during.esp = utf->utf_rsp;
+	during.eip = utf->utf_eip;
+	during.eflags = utf->utf_eflags & ~FL_RF;
+	during.esp = utf->utf_esp;
 	check_regs(&before, "before", &during, "during", "in UTrapframe");
 
 	// Map UTEMP so the write succeeds
@@ -111,49 +97,43 @@ umain(int argc, char **argv)
 {
 	set_pgfault_handler(pgfault);
 
-	__asm __volatile(
+	asm volatile(
 		// Light up eflags to catch more errors
-		"\tpushq %0\n"
-		"\tpushq %1\n"
-		"\tpushq %%rax\n"
-		"\tpushfq\n"
-		"\tpopq %%rax\n"
-		"\torq $0x8d4, %%rax\n"
-		"\tpushq %%rax\n"
-		"\tpopfq\n"
+		"\tpushl %%eax\n"
+		"\tpushfl\n"
+		"\tpopl %%eax\n"
+		"\torl $0x8d5, %%eax\n"
+		"\tpushl %%eax\n"
+		"\tpopfl\n"
 
 		// Save before registers
 		// eflags
-		"\tmovq 0x10(%%rsp), %%r15\n"
-		"\tmovq %%rax, 0x80(%%r15)\n"
+		"\tmov %%eax, %0+0x24\n"
 		// eip
-		"\tleaq 0f, %%rax\n"
-		"\tmovq %%rax, 0x78(%%r15)\n"
-		"\tpopq %%rax\n"
+		"\tleal 0f, %%eax\n"
+		"\tmovl %%eax, %0+0x20\n"
+		"\tpopl %%eax\n"
 		// others
-		SAVE_REGS("%%r15")
-		//"\t1: jmp 1b\n"
+		SAVE_REGS("%0")
+
 		// Fault at UTEMP
 		"\t0: movl $42, 0x400000\n"
 
 		// Save after registers (except eip and eflags)
-		"\t movq (%%rsp),%%r15\n"
-		SAVE_REGS("%%r15")
+		SAVE_REGS("%1")
 		// Restore registers (except eip and eflags).  This
 		// way, the test will run even if EIP is the *only*
 		// thing restored correctly.
-		"\tmovq 0x8(%%rsp), %%r15\n"
-		LOAD_REGS("%%r15")
+		LOAD_REGS("%0")
 		// Save after eflags (now that stack is back); note
 		// that we were very careful not to modify eflags in
 		// since we saved it
-		"\tpushq %%rax\n"
-		"\tpushfq\n"
-		"\tpopq %%rax\n"
-		"\tmovq 0x8(%%rsp), %%r15\n"
-		"\tmovq %%rax, 0x80(%%r15)\n"
-		"\tpopq %%rax\n"
-		: : "r" (&before), "r" (&after) : "memory", "cc");
+		"\tpushl %%eax\n"
+		"\tpushfl\n"
+		"\tpopl %%eax\n"
+		"\tmov %%eax, %1+0x24\n"
+		"\tpopl %%eax\n"
+		: : "m" (before), "m" (after) : "memory", "cc");
 
 	// Check UTEMP to roughly determine that EIP was restored
 	// correctly (of course, we probably wouldn't get this far if

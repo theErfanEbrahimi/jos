@@ -22,27 +22,21 @@
 int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
-	int r = 0;
-	if(pg) {
-		r = sys_ipc_recv(pg);
+	// LAB 4: Your code here.
+	if (pg == NULL) {
+		pg = (void *)-1;
 	}
-	else {
-		r = sys_ipc_recv((void*)KERNBASE);
-	}
-	if (r < 0) {
-		*from_env_store =  (from_env_store != NULL) ? (envid_t)0 : *from_env_store;
-		*perm_store = (perm_store != NULL) ? (int)0 : *perm_store;
+	int r = sys_ipc_recv(pg);
+	if (r < 0) {				
+		if (from_env_store) *from_env_store = 0;
+		if (perm_store) *perm_store = 0;
 		return r;
 	}
-	if(from_env_store) {
+	if (from_env_store)
 		*from_env_store = thisenv->env_ipc_from;
-	}
-	if(perm_store) {
+	if (perm_store)
 		*perm_store = thisenv->env_ipc_perm;
-	}
 	return thisenv->env_ipc_value;
-	// LAB 4: Your code here.
-	//panic("ipc_recv not implemented");
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -51,26 +45,26 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 //
 // Hint:
 //   Use sys_yield() to be CPU-friendly.
-//   If 'pg' is null, pass sys_ipc_recv a value that it will understand
+//   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
 //   as meaning "no page".  (Zero is not the right value.)
 void
 ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
-	int r = -E_IPC_NOT_RECV;
-	while(r == -E_IPC_NOT_RECV) {
-		if(pg) {
-			r = sys_ipc_try_send(to_env,val,pg,perm);
-		}
-		else {
-			r = sys_ipc_try_send(to_env, val, (void*)KERNBASE, perm);
-		}
-		sys_yield();
-	}
-	if (r != 0) {
-		panic("something went wrong with sending the page");
-	}
 	// LAB 4: Your code here.
-	//panic("ipc_send not implemented");
+	if (pg == NULL) {
+		pg = (void *)-1;
+	}
+	int r;
+	while(1) {
+		r = sys_ipc_try_send(to_env, val, pg, perm);
+		if (r == 0) {		//success
+			return;
+		} else if (r == -E_IPC_NOT_RECV) {	
+			sys_yield();
+		} else {			//other err
+			panic("ipc_send: sys_ipc_try_send failed\n");
+		}
+	}
 }
 
 // Find the first environment of the given type.  We'll use this to

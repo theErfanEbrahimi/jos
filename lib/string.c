@@ -125,7 +125,7 @@ memset(void *v, int c, size_t n)
 
 	if (n == 0)
 		return v;
-	if ((int64_t)v%4 == 0 && n%4 == 0) {
+	if ((int)v%4 == 0 && n%4 == 0) {
 		c &= 0xFF;
 		c = (c<<24)|(c<<16)|(c<<8)|c;
 		asm volatile("cld; rep stosl\n"
@@ -149,7 +149,7 @@ memmove(void *dst, const void *src, size_t n)
 	if (s < d && s + n > d) {
 		s += n;
 		d += n;
-		if ((int64_t)s%4 == 0 && (int64_t)d%4 == 0 && n%4 == 0)
+		if ((int)s%4 == 0 && (int)d%4 == 0 && n%4 == 0)
 			asm volatile("std; rep movsl\n"
 				:: "D" (d-4), "S" (s-4), "c" (n/4) : "cc", "memory");
 		else
@@ -158,7 +158,7 @@ memmove(void *dst, const void *src, size_t n)
 		// Some versions of GCC rely on DF being clear
 		asm volatile("cld" ::: "cc");
 	} else {
-		if ((int64_t)s%4 == 0 && (int64_t)d%4 == 0 && n%4 == 0)
+		if ((int)s%4 == 0 && (int)d%4 == 0 && n%4 == 0)
 			asm volatile("cld; rep movsl\n"
 				:: "D" (d), "S" (s), "c" (n/4) : "cc", "memory");
 		else
@@ -281,28 +281,5 @@ strtol(const char *s, char **endptr, int base)
 	if (endptr)
 		*endptr = (char *) s;
 	return (neg ? -val : val);
-}
-
-char * strstr(const char *in, const char *str)
-{
-    char c;
-    size_t len;
-
-    c = *str++;
-    if (!c)
-        return (char *) in;	// Trivial empty string case
-
-    len = strlen(str);
-    do {
-        char sc;
-
-        do {
-            sc = *in++;
-            if (!sc)
-                return (char *) 0;
-        } while (sc != c);
-    } while (strncmp(in, str, len) != 0);
-
-    return (char *) (in - 1);
 }
 
