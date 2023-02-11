@@ -2,7 +2,6 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-
 #define debug 0
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
@@ -20,7 +19,7 @@ fsipc(unsigned type, void *dstva)
     if (fsenv == 0)
         fsenv = ipc_find_env(ENV_TYPE_FS);
 
-    //static_assert(sizeof(fsipcbuf) == PGSIZE);
+    static_assert(sizeof(fsipcbuf) == PGSIZE);
 
     if (debug)
         cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
@@ -40,9 +39,9 @@ struct Dev devfile =
                 .dev_id =	'f',
                 .dev_name =	"file",
                 .dev_read =	devfile_read,
+                .dev_write =	devfile_write,
                 .dev_close =	devfile_flush,
                 .dev_stat =	devfile_stat,
-                .dev_write =	devfile_write,
                 .dev_trunc =	devfile_trunc
         };
 
@@ -69,24 +68,42 @@ open(const char *path, int mode)
     // If any step after fd_alloc fails, use fd_close to free the
     // file descriptor.
 
-	int r;
-	struct Fd *fd;
+    // LAB 5: Your code here.
 
-	if (strlen(path) >= MAXPATHLEN)
-		return -E_BAD_PATH;
+    // check path length.
+    if (strlen(path) >= MAXPATHLEN)
+        return -E_BAD_PATH;
 
-	if ((r = fd_alloc(&fd)) < 0)
-		return r;
+    // allocate a new fd.
+    struct Fd *fd;
+    int r = fd_alloc(&fd);
+    if (r < 0)
+        return r;
 
-	strcpy(fsipcbuf.open.req_path, path);
-	fsipcbuf.open.req_omode = mode;
+    // try to allocate a page for this fd.
+    r = sys_page_alloc(thisenv->env_id, fd, PTE_U | PTE_P | PTE_W);
+    if (r < 0) {
+        fd_close(fd, 0);
+        return r;
+    }
 
-	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
-		fd_close(fd, 0);
-		return r;
-	}
+    // make a request.
+    fsipcbuf.open.req_omode = mode;
+    strcpy(fsipcbuf.open.req_path, path);
 
-	return fd2num(fd);
+    // send the request.
+    r = fsipc(FSREQ_OPEN, fd);
+    if (r < 0) {
+        // to suppress the warning generated from fd_close().
+        fd->fd_dev_id = devfile.dev_id;
+
+        fd_close(fd, 0);
+        return r;
+    }
+
+    return fd2num(fd);
+
+    // panic("open not implemented");
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
@@ -117,7 +134,19 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
     // bytes read will be written back to fsipcbuf by the file
     // system server.
     // LAB 5: Your code here
-    panic("devfile_read not implemented");
+
+    // Make request.
+    struct Fsreq_read *req = &fsipcbuf.read;
+    req->req_fileid = fd->fd_file.id;
+    req->req_n = n;
+
+    // Send request.
+    ssize_t rddsz = fsipc(FSREQ_READ, NULL);
+    if (rddsz > 0)
+        memmove(buf, fsipcbuf.readRet.ret_buf, rddsz);
+
+    return rddsz;
+    // panic("devfile_read not implemented");
 }
 
 // Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
@@ -133,7 +162,26 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
     // remember that write is always allowed to write *fewer*
     // bytes than requested.
     // LAB 5: Your code here
-    panic("devfile_write not implemented");
+
+    // Make request.
+    struct Fsreq_write *req = &fsipcbuf.write;
+    req->req_fileid = fd->fd_file.id;
+
+    // Make sure not exceed size of req_buf.
+    size_t mvsz = sizeof(req->req_buf);
+    if (n < mvsz)
+        mvsz = n;
+    req->req_n = mvsz;
+
+    // Copy the bytes to write.
+    memmove(req->req_buf, buf, mvsz);
+
+    // Send request.
+    ssize_t wrnsz = fsipc(FSREQ_WRITE, NULL);
+
+    return wrnsz;
+
+    // panic("devfile_write not implemented");
 }
 
 static int
@@ -178,47 +226,3 @@ sync(void)
 
     return fsipc(FSREQ_SYNC, NULL);
 }
-
-//Copy a file from src to dest
-int
-copy(char *src, char *dest)
-{
-    int r;
-    int fd_src, fd_dest;
-    char buffer[512];	//keep this small
-    ssize_t read_size;
-    ssize_t write_size;
-    fd_src = open(src, O_RDONLY);
-    if (fd_src < 0) {	//error
-        cprintf("cp open src error:%e\n", fd_src);
-        return fd_src;
-    }
-
-    fd_dest = open(dest, O_CREAT | O_WRONLY);
-    if (fd_dest < 0) {	//error
-        cprintf("cp create dest  error:%e\n", fd_dest);
-        close(fd_src);
-        return fd_dest;
-    }
-
-    while ((read_size = read(fd_src, buffer, 512)) > 0) {
-        write_size = write(fd_dest, buffer, read_size);
-        if (write_size < 0) {
-            cprintf("cp write error:%e\n", write_size);
-            close(fd_src);
-            close(fd_dest);
-            return write_size;
-        }
-    }
-    if (read_size < 0) {
-        cprintf("cp read src error:%e\n", read_size);
-        close(fd_src);
-        close(fd_dest);
-        return read_size;
-    }
-    close(fd_src);
-    close(fd_dest);
-    return 0;
-
-}
-
