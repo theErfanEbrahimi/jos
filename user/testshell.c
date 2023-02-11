@@ -29,7 +29,7 @@ umain(int argc, char **argv)
 		dup(wfd, 1);
 		close(rfd);
 		close(wfd);
-		if ((r = spawnl("/sh", "sh", "-x", 0)) < 0)
+		if ((r = spawnl("/bin/sh", "sh", "-x", 0)) < 0)
 			panic("spawn: %e", r);
 		close(0);
 		close(1);

@@ -45,45 +45,56 @@
 
 struct PushRegs {
 	/* registers as pushed by pusha */
-	uint32_t reg_edi;
-	uint32_t reg_esi;
-	uint32_t reg_ebp;
-	uint32_t reg_oesp;		/* Useless */
-	uint32_t reg_ebx;
-	uint32_t reg_edx;
-	uint32_t reg_ecx;
-	uint32_t reg_eax;
+    uint64_t reg_r15;
+    uint64_t reg_r14;
+    uint64_t reg_r13;
+    uint64_t reg_r12;
+    uint64_t reg_r11;
+    uint64_t reg_r10;
+    uint64_t reg_r9;
+    uint64_t reg_r8;
+	uint64_t reg_rsi;
+	uint64_t reg_rdi;
+	uint64_t reg_rbp;
+	uint64_t reg_rdx;
+	uint64_t reg_rcx;
+	uint64_t reg_rbx;
+	uint64_t reg_rax;
 } __attribute__((packed));
 
 struct Trapframe {
 	struct PushRegs tf_regs;
 	uint16_t tf_es;
 	uint16_t tf_padding1;
+    uint32_t tf_padding2;
 	uint16_t tf_ds;
-	uint16_t tf_padding2;
-	uint32_t tf_trapno;
-	/* below here defined by x86 hardware */
-	uint32_t tf_err;
-	uintptr_t tf_eip;
-	uint16_t tf_cs;
 	uint16_t tf_padding3;
-	uint32_t tf_eflags;
+    uint32_t tf_padding4;
+	uint64_t tf_trapno;
+	/* below here defined by x86 hardware */
+	uint64_t tf_err;
+	uintptr_t tf_rip;
+	uint16_t tf_cs;
+	uint16_t tf_padding5;
+    uint32_t tf_padding6;
+	uint64_t tf_eflags;
 	/* below here only when crossing rings, such as from user to kernel */
-	uintptr_t tf_esp;
+	uintptr_t tf_rsp;
 	uint16_t tf_ss;
-	uint16_t tf_padding4;
+	uint16_t tf_padding7;
+    uint32_t tf_padding8;
 } __attribute__((packed));
 
 struct UTrapframe {
 	/* information about the fault */
-	uint32_t utf_fault_va;	/* va for T_PGFLT, 0 otherwise */
-	uint32_t utf_err;
+	uint64_t utf_fault_va;	/* va for T_PGFLT, 0 otherwise */
+	uint64_t utf_err;
 	/* trap-time return state */
 	struct PushRegs utf_regs;
-	uintptr_t utf_eip;
-	uint32_t utf_eflags;
+	uintptr_t utf_rip;
+	uint64_t utf_eflags;
 	/* the trap-time stack to return to */
-	uintptr_t utf_esp;
+	uintptr_t utf_rsp;
 } __attribute__((packed));
 
 #endif /* !__ASSEMBLER__ */

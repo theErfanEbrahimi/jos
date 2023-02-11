@@ -11,7 +11,7 @@
 #define FILEDATA	(FDTABLE + MAXFD*PGSIZE)
 
 // Return the 'struct Fd*' for file descriptor index i
-#define INDEX2FD(i)	((struct Fd*) (FDTABLE + (i)*PGSIZE))
+#define INDEX2FD(i)	((struct Fd*) (FDTABLE + ((uint64_t)i)*PGSIZE))
 // Return the file data page for file descriptor index i
 #define INDEX2DATA(i)	((char*) (FILEDATA + (i)*PGSIZE))
 
@@ -20,7 +20,7 @@
 // File descriptor manipulators
 // --------------------------------------------------------------
 
-int
+uint64_t
 fd2num(struct Fd *fd)
 {
 	return ((uintptr_t) fd - FDTABLE) / PGSIZE;
@@ -55,7 +55,7 @@ fd_alloc(struct Fd **fd_store)
 
 	for (i = 0; i < MAXFD; i++) {
 		fd = INDEX2FD(i);
-		if ((uvpd[PDX(fd)] & PTE_P) == 0 || (uvpt[PGNUM(fd)] & PTE_P) == 0) {
+		if ((uvpd[VPD(fd)] & PTE_P) == 0 || (uvpt[PGNUM(fd)] & PTE_P) == 0) {
 			*fd_store = fd;
 			return 0;
 		}
@@ -81,7 +81,7 @@ fd_lookup(int fdnum, struct Fd **fd_store)
 		return -E_INVAL;
 	}
 	fd = INDEX2FD(fdnum);
-	if (!(uvpd[PDX(fd)] & PTE_P) || !(uvpt[PGNUM(fd)] & PTE_P)) {
+	if (!(uvpd[VPD(fd)] & PTE_P) || !(uvpt[PGNUM(fd)] & PTE_P)) {
 		if (debug)
 			cprintf("[%08x] closed fd %d\n", thisenv->env_id, fdnum);
 		return -E_INVAL;
@@ -186,7 +186,7 @@ dup(int oldfdnum, int newfdnum)
 	ova = fd2data(oldfd);
 	nva = fd2data(newfd);
 
-	if ((uvpd[PDX(ova)] & PTE_P) && (uvpt[PGNUM(ova)] & PTE_P))
+	if ((uvpd[VPD(ova)] & PTE_P) && (uvpt[PGNUM(ova)] & PTE_P))
 		if ((r = sys_page_map(0, ova, 0, nva, uvpt[PGNUM(ova)] & PTE_SYSCALL)) < 0)
 			goto err;
 	if ((r = sys_page_map(0, oldfd, 0, newfd, uvpt[PGNUM(oldfd)] & PTE_SYSCALL)) < 0)

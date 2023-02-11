@@ -3,7 +3,8 @@
 #define BUFSIZ 1024		/* Find the buffer overrun bug! */
 int debug = 0;
 
-
+char* PATH[] = {"/bin/","/"};
+int npaths = 2;
 // gettoken(s, 0) prepares gettoken for subsequent calls and returns 0.
 // gettoken(0, token) parses a shell token from the previously set string,
 // null-terminates that token, stores the token pointer in '*token',
@@ -46,17 +47,8 @@ again:
 				cprintf("syntax error: < not followed by word\n");
 				exit();
 			}
-			// Open 't' for reading as file descriptor 0
-			// (which environments use as standard input).
-			// We can't open a file onto a particular descriptor,
-			// so open the file as 'fd',
-			// then check whether 'fd' is 0.
-			// If not, dup 'fd' onto file descriptor 0,
-			// then close the original 'fd'.
-
-			// LAB 5: Your code here.
 			if ((fd = open(t, O_RDONLY)) < 0) {
-				cprintf("open %s for write: %e", t, fd);
+				cprintf("open %s for read: %e", t, fd);
 				exit();
 			}
 			if (fd != 0) {
@@ -129,6 +121,18 @@ runit:
 			cprintf("EMPTY COMMAND\n");
 		return;
 	}
+    
+    //Search in all the PATH's for the binary
+    struct Stat st;
+    for(i=0;i<npaths;i++) {
+        strcpy(argv0buf, PATH[i]);
+        strcat(argv0buf, argv[0]);
+        r = stat(argv0buf, &st);
+        if(r==0) {
+           argv[0] = argv0buf;
+           break; 
+        }
+    }
 
 	// Clean up command line.
 	// Read all commands from the filesystem: add an initial '/' to

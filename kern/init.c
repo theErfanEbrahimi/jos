@@ -3,9 +3,12 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/memlayout.h>
 
 #include <kern/monitor.h>
 #include <kern/console.h>
+#include <kern/kdebug.h>
+#include <kern/dwarf_api.h>
 #include <kern/pmap.h>
 #include <kern/kclock.h>
 #include <kern/env.h>
@@ -15,12 +18,16 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
+uint64_t end_debug;
+
 static void boot_aps(void);
 
 
 void
 i386_init(void)
 {
+    /* __asm __volatile("int $12"); */
+
 	extern char edata[], end[];
 
 	// Before doing anything else, complete the ELF loading process.
@@ -34,8 +41,11 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
+    extern char end[];
+    end_debug = read_section_headers((0x10000+KERNBASE), (uintptr_t)end); 
+
 	// Lab 2 memory management initialization functions
-	mem_init();
+	x64_vm_init();
 
 	// Lab 3 user environment initialization functions
 	env_init();
@@ -51,7 +61,6 @@ i386_init(void)
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
 	lock_kernel();
-
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -89,7 +98,6 @@ boot_aps(void)
 	// Write entry code to unused memory at MPENTRY_PADDR
 	code = KADDR(MPENTRY_PADDR);
 	memmove(code, mpentry_start, mpentry_end - mpentry_start);
-
 	// Boot each AP one at a time
 	for (c = cpus; c < cpus + ncpu; c++) {
 		if (c == cpus + cpunum())  // We've started already.
@@ -110,7 +118,7 @@ void
 mp_main(void)
 {
 	// We are in high EIP now, safe to switch to kern_pgdir 
-	lcr3(PADDR(kern_pgdir));
+	lcr3(boot_cr3);
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
 	lapic_init();
@@ -118,15 +126,15 @@ mp_main(void)
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
+	lock_kernel();
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-	lock_kernel();
 	sched_yield();
-
 	// Remove this after you finish Exercise 4
+	// for (;;);
 }
 
 /*
@@ -149,7 +157,7 @@ _panic(const char *file, int line, const char *fmt,...)
 	panicstr = fmt;
 
 	// Be extra sure that the machine is in as reasonable state
-	asm volatile("cli; cld");
+	__asm __volatile("cli; cld");
 
 	va_start(ap, fmt);
 	cprintf("kernel panic on CPU %d at %s:%d: ", cpunum(), file, line);

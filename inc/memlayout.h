@@ -4,6 +4,7 @@
 #ifndef __ASSEMBLER__
 #include <inc/types.h>
 #include <inc/mmu.h>
+#include <inc/queue.h>
 #endif /* not __ASSEMBLER__ */
 
 /*
@@ -22,7 +23,7 @@
  * Virtual memory map:                                Permissions
  *                                                    kernel/user
  *
- *    4 Gig -------->  +------------------------------+
+ *     1 TB -------->  +------------------------------+
  *                     |                              | RW/--
  *                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *                     :              .               :
@@ -32,7 +33,7 @@
  *                     |                              | RW/--
  *                     |   Remapped Physical Memory   | RW/--
  *                     |                              | RW/--
- *    KERNBASE, ---->  +------------------------------+ 0xf0000000      --+
+ *    KERNBASE, ---->  +------------------------------+ 0x8004000000    --+
  *    KSTACKTOP        |     CPU0's Kernel Stack      | RW/--  KSTKSIZE   |
  *                     | - - - - - - - - - - - - - - -|                   |
  *                     |      Invalid Memory (*)      | --/--  KSTKGAP    |
@@ -43,28 +44,30 @@
  *                     +------------------------------+                   |
  *                     :              .               :                   |
  *                     :              .               :                   |
- *    MMIOLIM ------>  +------------------------------+ 0xefc00000      --+
+ *    MMIOLIM ------>  +------------------------------+ 0x8003e00000    --+
  *                     |       Memory-mapped I/O      | RW/--  PTSIZE
- * ULIM, MMIOBASE -->  +------------------------------+ 0xef800000
+ * ULIM, MMIOBASE -->  +------------------------------+ 0x8003c00000
  *                     |  Cur. Page Table (User R-)   | R-/R-  PTSIZE
- *    UVPT      ---->  +------------------------------+ 0xef400000
- *                     |          RO PAGES            | R-/R-  PTSIZE
- *    UPAGES    ---->  +------------------------------+ 0xef000000
+ *    UPAGES    ---->  +------------------------------+ 0x8000a00000
  *                     |           RO ENVS            | R-/R-  PTSIZE
- * UTOP,UENVS ------>  +------------------------------+ 0xeec00000
- * UXSTACKTOP -/       |     User Exception Stack     | RW/RW  PGSIZE
- *                     +------------------------------+ 0xeebff000
+ * UTOP,UENVS ------>  +------------------------------+ 0x8000800000
+ *                     .                              .
+ *                     .                              .
+ *                     .                              .
+ * UXSTACKTOP ------>  +------------------------------+ 0xef800000
+ *                     |     User Exception Stack     | RW/RW  PGSIZE
+ *                     +------------------------------+ 0xef7ff000
  *                     |       Empty Memory (*)       | --/--  PGSIZE
- *    USTACKTOP  --->  +------------------------------+ 0xeebfe000
+ *    USTACKTOP  --->  +------------------------------+ 0xef7fe000
  *                     |      Normal User Stack       | RW/RW  PGSIZE
- *                     +------------------------------+ 0xeebfd000
- *                     |                              |
+ *                     +------------------------------+ 0xef7fd000
+ *                     | n                             |
  *                     |                              |
  *                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *                     .                              .
  *                     .                              .
  *                     .                              .
- *                     |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+ *      N               |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
  *                     |     Program Data & Heap      |
  *    UTEXT -------->  +------------------------------+ 0x00800000
  *    PFTEMP ------->  |       Empty Memory (*)       |        PTSIZE
@@ -72,7 +75,7 @@
  *    UTEMP -------->  +------------------------------+ 0x00400000      --+
  *                     |       Empty Memory (*)       |                   |
  *                     | - - - - - - - - - - - - - - -|                   |
- *                     |  User STAB Data (optional)   |                 PTSIZE
+ *                     |  User STAB Data (optional)   |                2* PTSIZE
  *    USTABDATA ---->  +------------------------------+ 0x00200000        |
  *                     |       Empty Memory (*)       |                   |
  *    0 ------------>  +------------------------------+                 --+
@@ -84,17 +87,17 @@
 
 
 // All physical memory mapped at this address
-#define	KERNBASE	0xF0000000
+#define	KERNBASE	0x8004000000
 
 // At IOPHYSMEM (640K) there is a 384K hole for I/O.  From the kernel,
 // IOPHYSMEM can be addressed at KERNBASE + IOPHYSMEM.  The hole ends
-// at physical address EXTPHYSMEM.
+// at physical address EXTPHYSMEM
 #define IOPHYSMEM	0x0A0000
 #define EXTPHYSMEM	0x100000
 
 // Kernel stack.
 #define KSTACKTOP	KERNBASE
-#define KSTKSIZE	(8*PGSIZE)   		// size of a kernel stack
+#define KSTKSIZE	(16*PGSIZE)   		// size of a kernel stack
 #define KSTKGAP		(8*PGSIZE)   		// size of a kernel stack guard
 
 // Memory-mapped IO.
@@ -109,9 +112,10 @@
  */
 
 // User read-only virtual page table (see 'uvpt' below)
-#define UVPT		(ULIM - PTSIZE)
+
+#define UVPT    0x10000000000
 // Read-only copies of the Page structures
-#define UPAGES		(UVPT - PTSIZE)
+#define UPAGES		(ULIM - 25 * PTSIZE)
 // Read-only copies of the global env structures
 #define UENVS		(UPAGES - PTSIZE)
 
@@ -121,30 +125,34 @@
 
 // Top of user-accessible VM
 #define UTOP		UENVS
+
 // Top of one-page user exception stack
-#define UXSTACKTOP	UTOP
+#define UXSTACKTOP	0xef800000
 // Next page left invalid to guard against exception stack overflow; then:
 // Top of normal user stack
-#define USTACKTOP	(UTOP - 2*PGSIZE)
+#define USTACKTOP	(UXSTACKTOP - 2*PGSIZE)
 
 // Where user programs generally begin
-#define UTEXT		(2*PTSIZE)
+#define UTEXT		(4*PTSIZE)
 
 // Used for temporary page mappings.  Typed 'void*' for convenience
-#define UTEMP		((void*) PTSIZE)
+
+#define UTEMP		((void*) ((int)(2*PTSIZE)))
 // Used for temporary page mappings for the user page-fault handler
 // (should not conflict with other temporary page mappings)
 #define PFTEMP		(UTEMP + PTSIZE - PGSIZE)
 // The location of the user-level STABS data structure
-#define USTABDATA	(PTSIZE / 2)
+#define USTABDATA	(PTSIZE)
 
 // Physical address of startup code for non-boot CPUs (APs)
 #define MPENTRY_PADDR	0x7000
 
 #ifndef __ASSEMBLER__
 
-typedef uint32_t pte_t;
-typedef uint32_t pde_t;
+typedef uint64_t pml4e_t;
+typedef uint64_t pdpe_t;
+typedef uint64_t pte_t;
+typedef uint64_t pde_t;
 
 #if JOS_USER
 /*
@@ -154,17 +162,21 @@ typedef uint32_t pde_t;
  *
  * One result of treating the page directory as a page table is that all PTEs
  * can be accessed through a "virtual page table" at virtual address UVPT (to
- * which uvpt is set in lib/entry.S).  The PTE for page number N is stored in
+ * which uvpt is set in entry.S).  The PTE for page number N is stored in
  * uvpt[N].  (It's worth drawing a diagram of this!)
  *
  * A second consequence is that the contents of the current page directory
  * will always be available at virtual address (UVPT + (UVPT >> PGSHIFT)), to
- * which uvpd is set in lib/entry.S.
+ * which uvpd is set in entry.S.
  */
 extern volatile pte_t uvpt[];     // VA of "virtual page table"
 extern volatile pde_t uvpd[];     // VA of current page directory
+extern volatile pde_t uvpde[];     // VA of current page directory pointer
+extern volatile pde_t uvpml4e[];     // VA of current page map level 4
 #endif
 
+LIST_HEAD(Page_list,Page);
+typedef LIST_ENTRY(Page) Page_LIST_entry_t;
 /*
  * Page descriptor structures, mapped at UPAGES.
  * Read/write to the kernel, read-only to user programs.
@@ -177,7 +189,7 @@ extern volatile pde_t uvpd[];     // VA of current page directory
  */
 struct PageInfo {
 	// Next page on the free list.
-	struct PageInfo *pp_link;
+        struct PageInfo *pp_link;
 
 	// pp_ref is the count of pointers (usually in page table entries)
 	// to this page, for pages allocated using page_alloc.

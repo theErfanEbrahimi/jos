@@ -24,7 +24,7 @@ __attribute__ ((aligned(PGSIZE)));
 
 struct mp {             // floating pointer [MP 4.1]
 	uint8_t signature[4];           // "_MP_"
-	physaddr_t physaddr;            // phys addr of MP config table
+	uint32_t physaddr;            // phys addr of MP config table
 	uint8_t length;                 // 1
 	uint8_t specrev;                // [14]
 	uint8_t checksum;               // all bytes must add up to 0
@@ -39,10 +39,10 @@ struct mpconf {         // configuration table header [MP 4.2]
 	uint8_t version;                // [14]
 	uint8_t checksum;               // all bytes must add up to 0
 	uint8_t product[20];            // product id
-	physaddr_t oemtable;            // OEM table pointer
+	uint32_t oemtable;            // OEM table pointer
 	uint16_t oemlength;             // OEM table length
 	uint16_t entry;                 // entry count
-	physaddr_t lapicaddr;           // address of local APIC
+	uint32_t lapicaddr;           // address of local APIC
 	uint16_t xlength;               // extended table length
 	uint8_t xchecksum;              // extended table checksum
 	uint8_t reserved;
@@ -105,7 +105,7 @@ mpsearch(void)
 	uint32_t p;
 	struct mp *mp;
 
-	static_assert(sizeof(*mp) == 16);
+	//static_assert(sizeof(*mp) == 32);
 
 	// The BIOS data area lives in 16-bit segment 0x40.
 	bda = (uint8_t *) KADDR(0x40 << 4);
@@ -154,7 +154,7 @@ mpconfig(struct mp **pmp)
 		cprintf("SMP: Unsupported MP version %d\n", conf->version);
 		return NULL;
 	}
-	if ((sum((uint8_t *)conf + conf->length, conf->xlength) + conf->xchecksum) & 0xff) {
+	if (sum((uint8_t *)conf + conf->length, conf->xlength) != conf->xchecksum) {
 		cprintf("SMP: Bad MP configuration extended checksum\n");
 		return NULL;
 	}

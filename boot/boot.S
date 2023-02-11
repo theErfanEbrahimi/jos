@@ -9,6 +9,14 @@
 .set PROT_MODE_DSEG, 0x10        # kernel data segment selector
 .set CR0_PE_ON,      0x1         # protected mode enable flag
 
+.set multiboot_info, 0x7000 // After the boot block
+.set e820_map, multiboot_info + 52
+
+.set MB_flag, multiboot_info
+.set MB_mmap_len, multiboot_info + 44
+.set MB_mmap_addr, multiboot_info + 48
+
+.globl multiboot_info
 .globl start
 start:
   .code16                     # Assemble for 16-bit mode
@@ -41,6 +49,44 @@ seta20.2:
   movb    $0xdf,%al               # 0xdf -> port 0x60
   outb    %al,$0x60
 
+  # get the E820 memory map from the BIOS
+do_e820:
+  movl $0xe820, %eax
+  movl $e820_map, %ebx
+  movl %ebx, %edi
+  addl $4, %edi
+  xorl %ebx, %ebx
+  movl $0x534D4150, %edx
+  movl $24, %ecx
+  int $0x15
+  jc failed
+  cmpl %eax, %edx
+  jne failed
+  testl %ebx, %ebx
+  je failed
+  movl $24, %ebp
+
+next_entry:
+  #increment di
+  movl %ecx, -4(%edi)
+  addl $24, %edi
+  movl $0xe820, %eax
+  movl $24, %ecx
+  int $0x15
+  jc done
+  addl $24, %ebp
+  testl %ebx, %ebx
+  je done
+  jmp next_entry
+
+done:
+  movl %ecx, -4(%edi)
+  movw $0x40, (MB_flag) #multiboot info flags
+  movl $e820_map, (MB_mmap_addr)
+  movl %ebp, (MB_mmap_len)
+  
+failed:
+ 
   # Switch from real to protected mode, using a bootstrap GDT
   # and segment translation that makes virtual addresses 
   # identical to their physical addresses, so that the 
@@ -49,7 +95,7 @@ seta20.2:
   movl    %cr0, %eax
   orl     $CR0_PE_ON, %eax
   movl    %eax, %cr0
-  
+ 
   # Jump to next instruction, but in 32-bit code segment.
   # Switches processor into 32-bit mode.
   ljmp    $PROT_MODE_CSEG, $protcseg
@@ -66,7 +112,9 @@ protcseg:
   
   # Set up the stack pointer and call into C.
   movl    $start, %esp
-  call bootmain
+  movl $multiboot_info, %ebx
+ # call bootmain
+   call bootmain
 
   # If bootmain returns (it shouldn't), loop.
 spin:
@@ -78,8 +126,6 @@ gdt:
   SEG_NULL				# null seg
   SEG(STA_X|STA_R, 0x0, 0xffffffff)	# code seg
   SEG(STA_W, 0x0, 0xffffffff)	        # data seg
-
 gdtdesc:
-  .word   0x17                            # sizeof(gdt) - 1
+  .word   0x17                           # sizeof(gdt) - 1
   .long   gdt                             # address gdt
-

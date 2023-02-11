@@ -63,12 +63,14 @@ printnum(void (*putch)(int, void*), void *putdat,
 static unsigned long long
 getuint(va_list *ap, int lflag)
 {
+	unsigned long long x;    
 	if (lflag >= 2)
-		return va_arg(*ap, unsigned long long);
+		x= va_arg(*ap, unsigned long long);
 	else if (lflag)
-		return va_arg(*ap, unsigned long);
+		x= va_arg(*ap, unsigned long);
 	else
-		return va_arg(*ap, unsigned int);
+		x= va_arg(*ap, unsigned int);
+	return x;
 }
 
 // Same as getuint but signed - can't use getuint
@@ -76,12 +78,14 @@ getuint(va_list *ap, int lflag)
 static long long
 getint(va_list *ap, int lflag)
 {
+	long long x;
 	if (lflag >= 2)
-		return va_arg(*ap, long long);
+		x=va_arg(*ap, long long);
 	else if (lflag)
-		return va_arg(*ap, long);
+		x=va_arg(*ap, long);
 	else
-		return va_arg(*ap, int);
+		x=va_arg(*ap, int);
+	return x;
 }
 
 
@@ -96,7 +100,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
-
+	va_list aq;
+	va_copy(aq,ap);
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
@@ -142,7 +147,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			goto process_precision;
 
 		case '*':
-			precision = va_arg(ap, int);
+			precision = va_arg(aq, int);
 			goto process_precision;
 
 		case '.':
@@ -166,12 +171,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-			putch(va_arg(ap, int), putdat);
+			putch(va_arg(aq, int), putdat);
 			break;
 
 		// error message
 		case 'e':
-			err = va_arg(ap, int);
+			err = va_arg(aq, int);
 			if (err < 0)
 				err = -err;
 			if (err >= MAXERROR || (p = error_string[err]) == NULL)
@@ -182,7 +187,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// string
 		case 's':
-			if ((p = va_arg(ap, char *)) == NULL)
+			if ((p = va_arg(aq, char *)) == NULL)
 				p = "(null)";
 			if (width > 0 && padc != '-')
 				for (width -= strnlen(p, precision); width > 0; width--)
@@ -198,7 +203,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (signed) decimal
 		case 'd':
-			num = getint(&ap, lflag);
+			num = getint(&aq, 3);
 			if ((long long) num < 0) {
 				putch('-', putdat);
 				num = -(long long) num;
@@ -208,30 +213,31 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// unsigned decimal
 		case 'u':
-			num = getuint(&ap, lflag);
+			num = getuint(&aq, 3);
 			base = 10;
 			goto number;
 
 		// (unsigned) octal
 		case 'o':
-			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			// Gets the variable argument with type integer from the point which was processed last by va_arg
+			// calls getuint which returns a long long value, which then calls printnum which prints based on
+			// base value.
+			num = getuint(&aq, 3);
+			base = 8;
+			goto number;
 
 		// pointer
 		case 'p':
 			putch('0', putdat);
 			putch('x', putdat);
 			num = (unsigned long long)
-				(uintptr_t) va_arg(ap, void *);
+				(uintptr_t) va_arg(aq, void *);
 			base = 16;
 			goto number;
 
 		// (unsigned) hexadecimal
 		case 'x':
-			num = getuint(&ap, lflag);
+			num = getuint(&aq, 3);
 			base = 16;
 		number:
 			printnum(putch, putdat, num, base, width, padc);
@@ -250,6 +256,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			break;
 		}
 	}
+    va_end(aq);
 }
 
 void
@@ -279,14 +286,16 @@ sprintputch(int ch, struct sprintbuf *b)
 int
 vsnprintf(char *buf, int n, const char *fmt, va_list ap)
 {
+	va_list aq;
+	va_copy(aq,ap);
 	struct sprintbuf b = {buf, buf+n-1, 0};
 
 	if (buf == NULL || n < 1)
 		return -E_INVAL;
 
 	// print the string to the buffer
-	vprintfmt((void*)sprintputch, &b, fmt, ap);
-
+	vprintfmt((void*)sprintputch, &b, fmt, aq);
+	va_end(aq);
 	// null terminate the buffer
 	*b.buf = '\0';
 
@@ -298,10 +307,11 @@ snprintf(char *buf, int n, const char *fmt, ...)
 {
 	va_list ap;
 	int rc;
-
+	va_list aq;
 	va_start(ap, fmt);
-	rc = vsnprintf(buf, n, fmt, ap);
-	va_end(ap);
+	va_copy(aq,ap);
+	rc = vsnprintf(buf, n, fmt, aq);
+	va_end(aq);
 
 	return rc;
 }

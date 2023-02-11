@@ -19,17 +19,17 @@ struct spinlock kernel_lock = {
 #ifdef DEBUG_SPINLOCK
 // Record the current call stack in pcs[] by following the %ebp chain.
 static void
-get_caller_pcs(uint32_t pcs[])
+get_caller_pcs(uint64_t pcs[])
 {
-	uint32_t *ebp;
+	uint64_t *rbp;
 	int i;
 
-	ebp = (uint32_t *)read_ebp();
+	rbp = (uint64_t *)read_rbp();
 	for (i = 0; i < 10; i++){
-		if (ebp == 0 || ebp < (uint32_t *)ULIM)
+		if (rbp == 0 || rbp < (uint64_t *)ULIM)
 			break;
-		pcs[i] = ebp[1];          // saved %eip
-		ebp = (uint32_t *)ebp[0]; // saved %ebp
+		pcs[i] = rbp[1];          // saved %rip
+		rbp = (uint64_t *)rbp[0]; // saved %rbp
 	}
 	for (; i < 10; i++)
 		pcs[i] = 0;
@@ -88,15 +88,19 @@ spin_unlock(struct spinlock *lk)
 		uint32_t pcs[10];
 		// Nab the acquiring EIP chain before it gets released
 		memmove(pcs, lk->pcs, sizeof pcs);
-		cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:", 
-			cpunum(), lk->name, lk->cpu->cpu_id);
+		if (!lk->cpu) 
+			cprintf("CPU %d cannot release %s: not held by any CPU\nAcquired at:", 
+				cpunum(), lk->name);
+		else 
+			cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:", 
+				cpunum(), lk->name, lk->cpu->cpu_id);
 		for (i = 0; i < 10 && pcs[i]; i++) {
-			struct Eipdebuginfo info;
-			if (debuginfo_eip(pcs[i], &info) >= 0)
+			struct Ripdebuginfo info;
+			if (debuginfo_rip(pcs[i], &info) >= 0)
 				cprintf("  %08x %s:%d: %.*s+%x\n", pcs[i],
-					info.eip_file, info.eip_line,
-					info.eip_fn_namelen, info.eip_fn_name,
-					pcs[i] - info.eip_fn_addr);
+					info.rip_file, info.rip_line,
+					info.rip_fn_namelen, info.rip_fn_name,
+					pcs[i] - info.rip_fn_addr);
 			else
 				cprintf("  %08x\n", pcs[i]);
 		}
@@ -107,10 +111,14 @@ spin_unlock(struct spinlock *lk)
 	lk->cpu = 0;
 #endif
 
-	// The xchg instruction is atomic (i.e. uses the "lock" prefix) with
-	// respect to any other instruction which references the same memory.
-	// x86 CPUs will not reorder loads/stores across locked instructions
-	// (vol 3, 8.2.2). Because xchg() is implemented using asm volatile,
-	// gcc will not reorder C statements across the xchg.
+	// The xchg serializes, so that reads before release are 
+	// not reordered after it.  The 1996 PentiumPro manual (Volume 3,
+	// 7.2) says reads can be carried out speculatively and in
+	// any order, which implies we need to serialize here.
+	// But the 2007 Intel 64 Architecture Memory Ordering White
+	// Paper says that Intel 64 and IA-32 will not move a load
+	// after a store. So lock->locked = 0 would work here.
+	// The xchg being asm volatile ensures gcc emits it after
+	// the above assignments (and after the critical section).
 	xchg(&lk->locked, 0);
 }

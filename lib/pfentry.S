@@ -1,5 +1,6 @@
 #include <inc/mmu.h>
 #include <inc/memlayout.h>
+#include <kern/macro.h>
 
 // Page fault upcall entrypoint.
 
@@ -7,20 +8,20 @@
 // a page fault in user space (see the call to sys_set_pgfault_handler
 // in pgfault.c).
 //
-// When a page fault actually occurs, the kernel switches our ESP to
+// When a page fault actually occurs, the kernel switches our RSP to
 // point to the user exception stack if we're not already on the user
 // exception stack, and then it pushes a UTrapframe onto our user
 // exception stack:
 //
-//	trap-time esp
+//	trap-time rsp
 //	trap-time eflags
-//	trap-time eip
-//	utf_regs.reg_eax
+//	trap-time rip
+//	utf_regs.reg_rax
 //	...
-//	utf_regs.reg_esi
-//	utf_regs.reg_edi
+//	utf_regs.reg_rsi
+//	utf_regs.reg_rdi
 //	utf_err (error code)
-//	utf_fault_va            <-- %esp
+//	utf_fault_va            <-- %rsp
 //
 // If this is a recursive fault, the kernel will reserve for us a
 // blank word above the trap-time esp for scratch work when we unwind
@@ -33,11 +34,12 @@
 .globl _pgfault_upcall
 _pgfault_upcall:
 	// Call the C page fault handler.
-	pushl %esp			// function argument: pointer to UTF
-	movl _pgfault_handler, %eax
-	call *%eax
-	addl $4, %esp			// pop function argument
+	// function argument: pointer to UTF
 	
+	movq  %rsp,%rdi                // passing the function argument in rdi
+	movabs _pgfault_handler, %rax
+	call *%rax
+
 	// Now the C page fault handler has returned and you must return
 	// to the trap time state.
 	// Push trap-time %eip onto the trap-time stack.
@@ -66,27 +68,37 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+	addq $16,%rsp /* to skip fault_va and error code (not needed) */
+	
+	/* from rsp which is pointing to fault_va which is the 8 for fault_va, 8 for error_code, 120 positions is occupied by regs, 8 for eflags and 8 for rip */
+	
+	movq 120(%rsp), %r10 /*RIP*/
+	movq 136(%rsp), %r11 /*RSP*/
+	
+	subq $8, %r11  /*to push the value of the rip to timetrap rsp, subtract and then push*/
+	movq %r10, (%r11) /*transfer RIP to the trap time RSP% */
+	movq %r11, 136(%rsp)  /*Putting the RSP back in the right place*/
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
-	addl $8, %esp
-	movl 40(%esp), %eax # esp
-	movl 32(%esp), %ecx # eip
-	movl %ecx, -4(%eax) # set eip below esp
-	popal
-	addl $4, %esp
+	
+	POPA_ /* already skipped the fault_va and error_code previously by adding 16, so just pop using the macro*/
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
-	popfl
-
+	
+	addq $8, %rsp /* go to eflags skipping rip*/
+	popfq /*pop the flags*/ 
+	
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
-	popl %esp
+	
+	popq %rsp /* already at the point of rsp. so just pop.*/
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
-	lea -4(%esp), %esp
+	
 	ret
