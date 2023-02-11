@@ -8,13 +8,14 @@ r = Runner(save("jos.out"),
 def matchtest(parent, name, *args, **kw):
     def do_test():
         r.match(*args, **kw)
-    test(5, name, parent=parent)(do_test)
+    test(1, name, parent=parent)(do_test)
 
-@test(5, "internal FS tests [fs/test.c]")
+@test(0, "internal FS tests [fs/test.c]")
 def test_fs():
     r.user_test("hello")
 matchtest(test_fs, "fs i/o",
-          "FS can do I/O")
+          "FS can do I/O",
+          no=["idle loop can do I/O"])
 matchtest(test_fs, "check_bc",
           "block cache is good")
 matchtest(test_fs, "check_super",
@@ -32,7 +33,7 @@ matchtest(test_fs, "file_flush/file_truncate/file rewrite",
           "file_truncate is good",
           "file rewrite is good")
 
-@test(10, "testfile")
+@test(0)
 def test_testfile():
     r.user_test("testfile")
 matchtest(test_testfile, "serve_open/file_stat/file_close",
@@ -51,37 +52,37 @@ matchtest(test_testfile, "open",
 matchtest(test_testfile, "large file",
           "large file is good")
 
-@test(10, "spawn via spawnhello")
-def test_spawn():
-    r.user_test("spawnhello")
-    r.match('i am parent environment 00001001',
-            'hello, world',
-            'i am environment 00001002',
-            'No runnable environments in the system!')
+@test(1, "motd display [writemotd]")
+def test_writemotd1():
+    r.user_test("writemotd", snapshot=False)
+    r.match("OLD MOTD",
+            "This is /motd, the message of the day.",
+            "NEW MOTD",
+            "This is the NEW message of the day!")
 
-@test(5, "Protection I/O space")
-def test_faultio():
-    r.user_test("spawnfaultio")
-    r.match('TRAP')
+@test(1, "motd change [writemotd]", parent=test_writemotd1)
+def test_writemotd2():
+    try:
+        r.user_test("writemotd")
+        r.match("OLD MOTD",
+                "This is the NEW message of the day!",
+                "NEW MOTD",
+                no=["This is /motd, the message of the day."])
+    finally:
+        reset_fs()
 
-@test(10, "PTE_SHARE [testpteshare]")
+@test(1, "PTE_SHARE [testpteshare]")
 def test_pte_share():
     r.user_test("testpteshare")
     r.match('fork handles PTE_SHARE right',
             'spawn handles PTE_SHARE right')
 
-@test(5, "PTE_SHARE [testfdsharing]")
-def test_fd_share():
-    r.user_test("testfdsharing")
-    r.match('read in child succeeded',
-            'read in parent succeeded')
-
-@test(10, "start the shell [icode]")
+@test(1, "start the shell [icode]")
 def test_icode():
     r.user_test("icode")
     r.match('icode: read /motd',
             'This is /motd, the message of the day.',
-            'icode: spawn /init',
+            'icode: spawn /sbin/init',
             'init: running',
             'init: data seems okay',
             'icode: exiting',
@@ -90,10 +91,36 @@ def test_icode():
             'init: running sh',
             '\$ ')
 
-@test(15)
+@test(1)
 def test_testshell():
     r.user_test("testshell", timeout=60)
     r.match("shell ran correctly")
+
+# Obsolete
+#@test(10)
+def test_testpipe():
+    r.user_test("testpipe", stop_on_line("pipe tests passed"),
+                stop_on_line(".*panic"))
+    r.match("pipe read closed properly",
+            "pipe write closed properly")
+
+# Obsolete
+#@test(10)
+def test_testpiperace():
+    r.user_test("testpiperace", stop_on_line("race didn't happen"),
+                stop_on_line(".*panic"))
+    r.match("race didn't happen",
+            no=["child detected race",
+                "RACE: pipe appears closed"])
+
+# Obsolete
+#@test(10)
+def test_testpiperace2():
+    r.user_test("testpiperace2", stop_on_line("race didn't happen"),
+                stop_on_line(".*panic"))
+    r.match("race didn't happen",
+            no=["child detected race",
+                "RACE: pipe appears closed"])
 
 def gen_primes(n):
     rest = range(2, n)
@@ -101,7 +128,7 @@ def gen_primes(n):
         yield rest[0]
         rest = [n for n in rest if n % rest[0]]
 
-@test(10)
+@test(1)
 def test_primespipe():
     r.user_test("primespipe", stop_on_line("[0-9]{4}$"), timeout=120)
     primes = set(gen_primes(1000))
