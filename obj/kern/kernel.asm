@@ -313,7 +313,7 @@ f010020a:	e8 88 32 00 00       	call   f0103497 <env_create>
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 f010020f:	83 c4 08             	add    $0x8,%esp
 f0100212:	6a 00                	push   $0x0
-f0100214:	68 ae 55 1a f0       	push   $0xf01a55ae
+f0100214:	68 2e e8 1d f0       	push   $0xf01de82e
 f0100219:	e8 79 32 00 00       	call   f0103497 <env_create>
 	// Touch all you want.
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
