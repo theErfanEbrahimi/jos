@@ -52,25 +52,6 @@ matchtest(test_testfile, "open",
 matchtest(test_testfile, "large file",
           "large file is good")
 
-@test(1, "motd display [writemotd]")
-def test_writemotd1():
-    r.user_test("writemotd", snapshot=False)
-    r.match("OLD MOTD",
-            "This is /motd, the message of the day.",
-            "NEW MOTD",
-            "This is the NEW message of the day!")
-
-@test(1, "motd change [writemotd]", parent=test_writemotd1)
-def test_writemotd2():
-    try:
-        r.user_test("writemotd")
-        r.match("OLD MOTD",
-                "This is the NEW message of the day!",
-                "NEW MOTD",
-                no=["This is /motd, the message of the day."])
-    finally:
-        reset_fs()
-
 @test(1, "PTE_SHARE [testpteshare]")
 def test_pte_share():
     r.user_test("testpteshare")

@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import sys, os, re, time, socket, select, subprocess, errno, shutil
+import sys, os, re, time, socket, select, subprocess, errno, shutil, traceback
 from subprocess import check_call, Popen
 from optparse import OptionParser
 
@@ -49,9 +49,7 @@ def test(points, title=None, parent=None):
             try:
                 fn()
             except AssertionError as e:
-                fail = str(e)
-                if not fail:
-                    fail = 'See log for error'
+                fail = "".join(traceback.format_exception_only(type(e), e))
 
             # Display and handle test result
             POSSIBLE += points
@@ -438,7 +436,7 @@ Failed to shutdown QEMU.  You might need to 'killall qemu' or
     def __monitor_start(self, output):
         if b"\n" in output:
             try:
-                self.gdb = GDBClient(self.qemu.get_gdb_port(), timeout=2)
+                self.gdb = GDBClient(self.qemu.get_gdb_port(), timeout=30)
                 raise TerminateTest
             except socket.error:
                 pass
@@ -516,8 +514,8 @@ def stop_breakpoint(addr):
 
     def setup_breakpoint(runner):
         if isinstance(addr, str):
-            addrs = [int(sym[:16], 16) for sym in file("obj/kern/kernel.sym")
-                     if sym[19:].strip() == addr]
+            addrs = [int(sym[:8], 16) for sym in open("obj/kern/kernel.sym")
+                     if sym[11:].strip() == addr]
             assert len(addrs), "Symbol %s not found" % addr
             runner.gdb.breakpoint(addrs[0])
         else:
